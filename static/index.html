@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>VALTrack — Suivi Valorant</title>
+  <meta name="description" content="Outil de suivi Valorant : boutique quotidienne, monnaie, stats, et explorateur de skins." />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    html { scroll-behavior:smooth; }
+    body { font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji"; }
+    .glass { backdrop-filter: blur(8px); background: rgba(255,255,255,0.06); }
+    .gradient-text { background: linear-gradient(90deg,#60a5fa,#a78bfa,#f472b6); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  </style>
+</head>
+<body class="bg-zinc-950 text-zinc-100">
+  <!-- Header -->
+  <header class="sticky top-0 z-40 border-b border-white/10 bg-zinc-950/80 backdrop-blur">
+    <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <a href="#" class="flex items-center gap-2">
+        <span class="inline-block h-8 w-8 rounded-xl bg-white/10 grid place-items-center">
+          <!-- simple crosshair icon -->
+          <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M12 2v4m0 12v4M2 12h4m12 0h4"/>
+          </svg>
+        </span>
+        <span class="font-extrabold tracking-tight">VALTrack</span>
+      </a>
+      <nav class="hidden md:flex items-center gap-6 text-sm text-zinc-300">
+        <a href="#fonctionnement" class="hover:text-white">Fonctionnement</a>
+        <a href="#fonctionnalites" class="hover:text-white">Fonctionnalités</a>
+        <a href="#transparence" class="hover:text-white">Transparence</a>
+        <a href="#faq" class="hover:text-white">FAQ</a>
+      </nav>
+      <div class="flex items-center gap-3">
+        <a href="/login" class="px-3.5 py-1.5 rounded-lg bg-white text-zinc-900 text-sm font-semibold hover:bg-zinc-200">Se connecter</a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Hero -->
+  <section class="relative overflow-hidden">
+    <div class="absolute inset-0 -z-10 opacity-30" aria-hidden="true">
+      <div class="absolute -top-32 left-1/2 -translate-x-1/2 h-[480px] w-[840px] rounded-full blur-3xl" style="background: radial-gradient(600px 200px at 50% 50%, #a78bfa55, transparent 70%);"></div>
+    </div>
+    <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-20">
+      <div class="max-w-3xl">
+        <h1 class="text-4xl sm:text-6xl font-extrabold leading-tight">
+          Votre <span class="gradient-text">suivi Valorant</span> clair, rapide et privé.
+        </h1>
+        <p class="mt-5 text-zinc-300 max-w-2xl">
+          VALTrack montre votre monnaie en jeu, votre boutique quotidienne, vos stats globales, et un explorateur complet des skins — en quelques clics.
+        </p>
+        <div class="mt-8 flex flex-wrap items-center gap-3">
+          <a id="get-started" href="#fonctionnement" class="px-5 py-3 rounded-xl bg-white text-zinc-900 font-semibold hover:bg-zinc-200">Commencer</a>
+          <a href="#transparence" class="px-5 py-3 rounded-xl glass border border-white/10 hover:bg-white/5">Voir notre transparence</a>
+        </div>
+        <p class="mt-4 text-xs text-zinc-400">Non affilié à Riot Games. Utilisation à vos risques, respectez les CGU.</p>
+      </div>
+    </div>
+  </section>
+<section class="border-t border-white/10">
+  <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-10">
+    <h2 class="text-2xl sm:text-3xl font-bold">Services sans compte</h2>
+    <p class="text-sm text-zinc-400 mt-1">Accès direct, aucune connexion requise.</p>
+
+    <div class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <!-- Skins -->
+      <a href="/list_weapon" class="group rounded-2xl border border-white/10 glass p-5 hover:bg-white/5">
+        <div class="flex items-center justify-between">
+          <h3 class="font-semibold">Recherche de skins</h3><span>🎨</span>
+        </div>
+        <p class="mt-2 text-sm text-zinc-300">Liste complète + recherche.</p>
+        <div class="mt-4 h-1 rounded bg-gradient-to-r from-indigo-400 via-violet-400 to-pink-400"></div>
+      </a>
+
+      <!-- Agents -->
+      <a href="/agents" class="group rounded-2xl border border-white/10 glass p-5 hover:bg-white/5">
+        <div class="flex items-center justify-between">
+          <h3 class="font-semibold">Agents</h3><span>🕵️</span>
+        </div>
+        <p class="mt-2 text-sm text-zinc-300">Compétences, rôles, portraits.</p>
+        <div class="mt-4 h-1 rounded bg-gradient-to-r from-emerald-400 to-teal-400"></div>
+      </a>
+
+      <!-- Bundles -->
+      <a href="/bundles" class="group rounded-2xl border border-white/10 glass p-5 hover:bg-white/5">
+        <div class="flex items-center justify-between">
+          <h3 class="font-semibold">Bundles</h3><span>🧩</span>
+        </div>
+        <p class="mt-2 text-sm text-zinc-300">Packs, contenus, visuels.</p>
+        <div class="mt-4 h-1 rounded bg-gradient-to-r from-amber-400 to-orange-500"></div>
+      </a>
+
+      <!-- Maps -->
+      <a href="/maps" class="group rounded-2xl border border-white/10 glass p-5 hover:bg-white/5">
+        <div class="flex items-center justify-between">
+          <h3 class="font-semibold">Cartes</h3><span>🗺️</span>
+        </div>
+        <p class="mt-2 text-sm text-zinc-300">Images, callouts, infos.</p>
+        <div class="mt-4 h-1 rounded bg-gradient-to-r from-sky-400 to-cyan-400"></div>
+      </a>
+    </div>
+  </div>
+</section>
+
+  <!-- Fonctionnement -->
+  <section id="fonctionnement" class="border-t border-white/10">
+    <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-16">
+      <h2 class="text-2xl sm:text-3xl font-bold">Comment ça marche</h2>
+      <ol class="mt-6 grid gap-4 sm:grid-cols-3 text-sm">
+        <li class="glass rounded-2xl p-5 border border-white/10">
+          <div class="flex items-center justify-between">
+            <span class="text-xs uppercase tracking-wider text-zinc-400">Étape 1</span>
+            <span class="text-zinc-400">🔐</span>
+          </div>
+          <p class="mt-3 font-medium">Connexion sécurisée</p>
+          <p class="mt-1 text-zinc-300">Vous vous connectez via un flux web dédié. Nous ne stockons pas votre mot de passe.</p>
+        </li>
+        <li class="glass rounded-2xl p-5 border border-white/10">
+          <div class="flex items-center justify-between">
+            <span class="text-xs uppercase tracking-wider text-zinc-400">Étape 2</span>
+            <span class="text-zinc-400">📡</span>
+          </div>
+          <p class="mt-3 font-medium">Lecture des données autorisées</p>
+          <p class="mt-1 text-zinc-300">Avec votre consentement, on lit votre boutique, solde et stats via les endpoints connus.</p>
+        </li>
+        <li class="glass rounded-2xl p-5 border border-white/10">
+          <div class="flex items-center justify-between">
+            <span class="text-xs uppercase tracking-wider text-zinc-400">Étape 3</span>
+            <span class="text-zinc-400">⚡</span>
+          </div>
+          <p class="mt-3 font-medium">Affichage instantané</p>
+          <p class="mt-1 text-zinc-300">Les infos s’affichent dans un tableau de bord léger, en temps quasi réel.</p>
+        </li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- Fonctionnalités -->
+  <section id="fonctionnalites" class="border-t border-white/10">
+    <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-16">
+      <h2 class="text-2xl sm:text-3xl font-bold">Fonctionnalités clés</h2>
+      <div class="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+        <!-- Monnaie en jeu -->
+        <div class="rounded-2xl border border-white/10 glass p-6">
+          <div class="flex items-center justify-between">
+            <h3 class="font-semibold">Monnaie en jeu</h3>
+            <span>💳</span>
+          </div>
+          <p class="mt-2 text-sm text-zinc-300">Voir votre solde VP / RP en un coup d’œil.</p>
+          <ul class="mt-3 text-xs text-zinc-400 list-disc list-inside">
+            <li>Mises à jour rapides</li>
+            <li>Historique simple</li>
+          </ul>
+        </div>
+        <!-- Boutique quotidienne -->
+        <div class="rounded-2xl border border-white/10 glass p-6">
+          <div class="flex items-center justify-between">
+            <h3 class="font-semibold">Boutique quotidienne</h3>
+            <span>🛍️</span>
+          </div>
+          <p class="mt-2 text-sm text-zinc-300">Aperçu des offres du jour, avec compte à rebours.</p>
+          <ul class="mt-3 text-xs text-zinc-400 list-disc list-inside">
+            <li>Images des skins</li>
+            <li>Prix & rareté</li>
+          </ul>
+        </div>
+        <!-- Stats générales -->
+        <div class="rounded-2xl border border-white/10 glass p-6">
+          <div class="flex items-center justify-between">
+            <h3 class="font-semibold">Stats générales</h3>
+            <span>📊</span>
+          </div>
+          <p class="mt-2 text-sm text-zinc-300">MMR approximatif, K/D, cartes jouées, agents.</p>
+          <ul class="mt-3 text-xs text-zinc-400 list-disc list-inside">
+            <li>Filtres par période</li>
+            <li>Export CSV</li>
+          </ul>
+        </div>
+        <!-- Explorateur de skins -->
+        <div class="rounded-2xl border border-white/10 glass p-6">
+          <div class="flex items-center justify-between">
+            <h3 class="font-semibold">Explorateur de skins</h3>
+            <span>🗂️</span>
+          </div>
+          <p class="mt-2 text-sm text-zinc-300">Catalogue complet des skins, chromas et niveaux.</p>
+          <ul class="mt-3 text-xs text-zinc-400 list-disc list-inside">
+            <li>Recherche ultra rapide</li>
+            <li>Listes favorites</li>
+          </ul>
+        </div>
+      </div>
+
+      <div id="essayer" class="mt-10 flex flex-wrap items-center gap-3">
+        <a href="#get-started" class="px-5 py-3 rounded-xl bg-white text-zinc-900 font-semibold hover:bg-zinc-200">Essayer maintenant</a>
+        <span class="text-xs text-zinc-400">Gratuit, sans carte bancaire.</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Transparence -->
+  <section id="transparence" class="border-t border-white/10">
+    <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-16">
+      <h2 class="text-2xl sm:text-3xl font-bold">Transparence & données</h2>
+      <div class="mt-6 grid gap-6 lg:grid-cols-2">
+        <div class="rounded-2xl border border-white/10 glass p-6">
+          <h3 class="font-semibold">Ce que nous <span class="gradient-text">ne</span> faisons pas</h3>
+          <ul class="mt-3 space-y-2 text-sm text-zinc-300">
+            <li>• Pas de stockage de mots de passe.</li>
+            <li>• Pas de revente de données.</li>
+            <li>• Pas de tracking publicitaire.</li>
+          </ul>
+        </div>
+        <div class="rounded-2xl border border-white/10 glass p-6">
+          <h3 class="font-semibold">Ce que nous collectons</h3>
+          <ul class="mt-3 space-y-2 text-sm text-zinc-300">
+            <li>• Jetons d’accès chiffrés en mémoire vive uniquement.</li>
+            <li>• Données de profil minimales (ID, région) pour l’affichage.</li>
+            <li>• Logs techniques anonymisés (erreurs, latence).</li>
+          </ul>
+        </div>
+        <div class="rounded-2xl border border-white/10 glass p-6">
+          <h3 class="font-semibold">Vos contrôles</h3>
+          <ul class="mt-3 space-y-2 text-sm text-zinc-300">
+            <li>• Déconnexion instantanée (révocation des jetons).</li>
+            <li>• Suppression des caches locaux.</li>
+            <li>• Export / purge sur demande.</li>
+          </ul>
+        </div>
+        <div class="rounded-2xl border border-white/10 glass p-6">
+          <h3 class="font-semibold">Conformité</h3>
+          <ul class="mt-3 space-y-2 text-sm text-zinc-300">
+            <li>• Respect RGPD (finalités claires, minimisation).</li>
+            <li>• Non-affiliation à Riot, respect des CGU.</li>
+            <li>• Code côté client priorisé quand possible.</li>
+          </ul>
+        </div>
+      </div>
+      <p class="mt-6 text-xs text-zinc-400">Note : certains accès peuvent être restreints par Riot. Utilisez l’outil de manière responsable.</p>
+    </div>
+  </section>
+
+  <!-- FAQ courte -->
+  <section id="faq" class="border-t border-white/10">
+    <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-16">
+      <h2 class="text-2xl sm:text-3xl font-bold">FAQ</h2>
+      <div class="mt-6 grid gap-4 sm:grid-cols-2">
+        <details class="group rounded-2xl border border-white/10 glass p-5">
+          <summary class="cursor-pointer font-medium flex items-center justify-between">Est-ce autorisé ?<span class="text-zinc-400">❓</span></summary>
+          <p class="mt-3 text-sm text-zinc-300">Nous n’utilisons pas d’outils visant à nuire. Respectez les CGU de Riot. L’usage reste à votre discrétion.</p>
+        </details>
+        <details class="group rounded-2xl border border-white/10 glass p-5">
+          <summary class="cursor-pointer font-medium flex items-center justify-between">Mes identifiants ?<span class="text-zinc-400">🔑</span></summary>
+          <p class="mt-3 text-sm text-zinc-300">Votre mot de passe n’est jamais stocké. Les jetons d’accès expirent et ne sont conservés qu’en mémoire.</p>
+        </details>
+        <details class="group rounded-2xl border border-white/10 glass p-5">
+          <summary class="cursor-pointer font-medium flex items-center justify-between">Performances<span class="text-zinc-400">⚙️</span></summary>
+          <p class="mt-3 text-sm text-zinc-300">L’app est légère, met en cache quelques réponses et ne fait que le strict nécessaire.</p>
+        </details>
+        <details class="group rounded-2xl border border-white/10 glass p-5">
+          <summary class="cursor-pointer font-medium flex items-center justify-between">Open-source ?<span class="text-zinc-400">💻</span></summary>
+          <p class="mt-3 text-sm text-zinc-300">Une version publique est prévue. Vous pourrez auditer la collecte et contribuer.</p>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="border-t border-white/10">
+    <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-10 text-sm text-zinc-400 flex flex-col sm:flex-row items-center justify-between gap-4">
+      <p>© <span id="year"></span> VALTrack — Projet non affilié à Riot Games.</p>
+      <div class="flex items-center gap-4">
+        <a href="#transparence" class="hover:text-white">Transparence</a>
+        <a href="#" class="hover:text-white">Mentions</a>
+        <a href="#" class="hover:text-white">Contact</a>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    document.getElementById('year').textContent = new Date().getFullYear();
+  </script>
+</body>
+</html>

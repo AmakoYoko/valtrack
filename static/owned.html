@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>VALTrack — Mes skins</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: Inter, ui-sans-serif, system-ui; }
+    .glass { backdrop-filter: blur(8px); background: rgba(255,255,255,0.06); }
+    .shimmer { position: relative; overflow: hidden; }
+    .shimmer::after { content: ""; position: absolute; inset: 0; transform: translateX(-100%); background: linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent); animation: shimmer 1.3s infinite; }
+    @keyframes shimmer { 100% { transform: translateX(100%); } }
+    .tier { border-left-width: 6px; }
+  </style>
+</head>
+<body class="bg-zinc-950 text-zinc-100 min-h-screen">
+  <header class="sticky top-0 z-40 border-b border-white/10 bg-zinc-950/80 backdrop-blur">
+    <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <a href="/" class="flex items-center gap-2">
+        <span class="inline-grid place-items-center h-9 w-9 rounded-xl bg-white/10">
+          <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M12 2v4m0 12v4M2 12h4m12 0h4"/>
+          </svg>
+        </span>
+        <span class="font-extrabold tracking-tight">VALTrack</span>
+      </a>
+      <a href="/app" class="text-sm text-zinc-300 hover:text-white">← App</a>
+    </div>
+  </header>
+
+  <main class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+    <div class="flex items-center justify-between gap-3">
+      <h1 class="text-2xl font-bold">Mes skins</h1>
+      <div class="text-sm text-zinc-400">Total: <span id="count">—</span></div>
+    </div>
+
+    <!-- Filtres -->
+    <div class="grid gap-3 sm:grid-cols-4">
+      <input id="q" type="text" placeholder="Rechercher un skin…" class="w-full rounded-xl bg-zinc-900/70 border border-white/10 px-4 py-2 outline-none focus:ring-2 focus:ring-indigo-400">
+      <select id="weaponFilter" class="rounded-xl bg-zinc-900/70 border border-white/10 px-3 py-2"></select>
+      <select id="tierFilter" class="rounded-xl bg-zinc-900/70 border border-white/10 px-3 py-2"></select>
+      <label class="inline-flex items-center gap-2 text-sm"><input id="showLocked" type="checkbox" class="accent-white/80"> Inclure non possédés</label>
+    </div>
+
+    <!-- Grille -->
+    <section id="grid" class="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"></section>
+
+    <template id="cardTpl">
+      <article class="relative glass rounded-2xl border border-white/10 overflow-hidden tier">
+        <div class="aspect-[4/3] bg-zinc-900/40 grid place-items-center">
+          <img class="h-full w-full object-contain p-4"/>
+        </div>
+        <div class="p-3">
+          <p class="font-semibold name truncate">—</p>
+          <p class="text-xs text-zinc-300 weapon">—</p>
+          <div class="mt-2 flex items-center gap-2 text-[11px] text-zinc-300">
+            <span class="px-2 py-0.5 rounded bg-white/10 owned">Possédé</span>
+            <span class="px-2 py-0.5 rounded bg-white/10 chroma hidden">Chroma</span>
+          </div>
+        </div>
+      </article>
+    </template>
+  </main>
+
+  <script>
+    const API_BASE = '';
+    const SESSION = (localStorage.getItem('session_token') || localStorage.getItem('SESSION_TOKEN') || '').trim();
+    const $ = (s) => document.querySelector(s);
+
+    const IDS = {
+      SKINS: 'e7c63390-eda7-46e0-bb7a-a6abdacd2433', // levels
+      VARIANTS: '3ad1b2b2-acdb-4524-852f-954a76ddae0a', // chromas
+    };
+
+    const state = {
+      ownedSkinLevels: new Set(),
+      ownedChromas: new Set(),
+      catalog: [], // regroupé par skin
+      tiers: {},
+      showLocked: false,
+      q: '',
+      weapon: '',
+      tier: '',
+    };
+
+    async function api(path){
+      const r = await fetch(API_BASE + path, { headers: { 'Authorization': `Session ${SESSION}` } });
+      if(!r.ok) throw new Error(`API ${path} ${r.status}`);
+      return r.json();
+    }
+
+    async function fetchOwned(){
+      const data = await api('/valorant/get_ownedItems');
+      for(const block of (data.EntitlementsByTypes||[])){
+        if(block.ItemTypeID === IDS.SKINS){
+          for(const e of block.Entitlements||[]) state.ownedSkinLevels.add(e.ItemID);
+        }
+        if(block.ItemTypeID === IDS.VARIANTS){
+          for(const e of block.Entitlements||[]) state.ownedChromas.add(e.ItemID);
+        }
+      }
+    }
+
+    async function fetchTiers(){
+      const r = await fetch('https://valorant-api.com/v1/contenttiers');
+      const { data=[] } = await r.json();
+      for(const t of data){ state.tiers[t.uuid] = { name: t.devName||t.displayName, icon: t.displayIcon, color: t.highlightColor, rank: t.rank || 0 }; }
+    }
+
+    async function fetchWeapons(){
+      const r = await fetch('https://valorant-api.com/v1/weapons?language=fr-FR');
+      const { data: weapons=[] } = await r.json();
+      const out = [];
+      for(const w of weapons){
+        const weaponName = w.displayName;
+        for(const s of (w.skins||[])){
+          if(!s.levels || s.levels.length===0) continue;
+          const tierUuid = (s.contentTierUuid||'') || (s.levels[0]?.contentTierUuid||'');
+          const chromas = (s.chromas||[]).map(c=>({uuid:c.uuid, name:c.displayName, icon:c.fullRender||c.displayIcon||s.displayIcon}));
+          const baseIcon = s.levels[0]?.displayIcon || s.displayIcon || w.displayIcon;
+          out.push({
+            skinUuid: s.uuid,
+            skinName: s.displayName,
+            weaponName,
+            icon: baseIcon,
+            tierUuid,
+            chromas,
+            levels: s.levels.map(l=>l.uuid),
+          });
+        }
+      }
+      state.catalog = out;
+    }
+
+    function buildFilters(){
+      const weapons = Array.from(new Set(state.catalog.map(x=>x.weaponName))).sort();
+      const weaponSel = $('#weaponFilter');
+      weaponSel.innerHTML = '<option value="">Toutes les armes</option>' + weapons.map(w=>`<option>${w}</option>`).join('');
+
+      const tiers = Array.from(new Set(state.catalog.map(x=>x.tierUuid).filter(Boolean)));
+      const tierSel = $('#tierFilter');
+      tierSel.innerHTML = '<option value="">Tous les tiers</option>' + tiers.map(u=>{
+        const t = state.tiers[u]||{}; const name = t.name||'Inconnu';
+        return `<option value="${u}">${name}</option>`;}).join('');
+    }
+
+    function passFilters(x){
+      const owned = x.levels.some(lvl=> state.ownedSkinLevels.has(lvl));
+      if(!state.showLocked && !owned) return false;
+      if(state.q){
+        const q = state.q;
+        const hay = `${x.skinName} ${x.weaponName}`.toLowerCase();
+        if(!hay.includes(q)) return false;
+      }
+      if(state.weapon && x.weaponName !== state.weapon) return false;
+      if(state.tier && x.tierUuid !== state.tier) return false;
+      return true;
+    }
+
+    function render(){
+      const wrap = $('#grid'); wrap.innerHTML = '';
+      const tpl = $('#cardTpl');
+      const items = state.catalog.filter(passFilters).sort((a,b)=> (a.skinName||'').localeCompare(b.skinName||''));
+      $('#count').textContent = items.length;
+      for(const x of items){
+        const n = tpl.content.cloneNode(true);
+        const owned = x.levels.some(lvl=> state.ownedSkinLevels.has(lvl));
+        const chromaOwned = x.chromas.some(c=> state.ownedChromas.has(c.uuid));
+        const tier = state.tiers[x.tierUuid]||{};
+        n.querySelector('img').src = x.icon||'';
+        n.querySelector('.name').textContent = x.skinName.replace(/Skin|Variante/gi,'').trim();
+        n.querySelector('.weapon').textContent = x.weaponName;
+
+        const ownedTag = n.querySelector('.owned');
+        ownedTag.textContent = owned? 'Possédé' : 'Non possédé';
+        ownedTag.classList.toggle('bg-emerald-500/20', owned);
+        ownedTag.classList.toggle('text-emerald-200', owned);
+        ownedTag.classList.toggle('bg-zinc-700/40', !owned);
+        ownedTag.classList.toggle('text-zinc-300', !owned);
+
+        const chroma = n.querySelector('.chroma');
+        if(chromaOwned){ chroma.classList.remove('hidden'); }
+
+        const card = n.firstElementChild;
+        if(tier.color){ card.style.borderLeftColor = tier.color; }
+        if(!owned){ card.classList.add('opacity-60'); }
+        wrap.appendChild(n);
+      }
+    }
+
+    $('#q').addEventListener('input', (e)=>{ state.q = (e.target.value||'').trim().toLowerCase(); render(); });
+    $('#weaponFilter').addEventListener('change', (e)=>{ state.weapon = e.target.value; render(); });
+    $('#tierFilter').addEventListener('change', (e)=>{ state.tier = e.target.value; render(); });
+    $('#showLocked').addEventListener('change', (e)=>{ state.showLocked = !!e.target.checked; render(); });
+
+    (async function boot(){
+      try{
+        await Promise.all([fetchOwned(), fetchTiers(), fetchWeapons()]);
+        buildFilters();
+        render();
+      }catch(e){
+        console.warn(e);
+        try{ await Promise.all([fetchTiers(), fetchWeapons()]); state.showLocked = true; buildFilters(); render(); }catch{}
+      }
+    })();
+  </script>
+</body>
+</html>

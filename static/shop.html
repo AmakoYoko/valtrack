@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>VALTrack — Boutique (Storefront)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root { color-scheme: dark; }
+    body { font-family: Inter, ui-sans-serif, system-ui; overflow-x:hidden; }
+    .glass { backdrop-filter: blur(10px); background: rgba(255,255,255,0.06); }
+    .shimmer { position: relative; overflow: hidden; }
+    .shimmer::after { content:""; position:absolute; inset:0; transform:translateX(-100%); background:linear-gradient(90deg, transparent, rgba(255,255,255,.08), transparent); animation:sh 1.2s infinite; }
+    @keyframes sh { 100% { transform:translateX(100%); } }
+    dialog[open] { animation: fadein .15s ease-out; }
+    @keyframes fadein { from { opacity:0; transform:translateY(8px) } to { opacity:1; transform:translateY(0) } }
+    .btn { @apply px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/10 text-sm; }
+  </style>
+</head>
+<body class="bg-zinc-950 text-zinc-100 min-h-screen">
+  <!-- Erreur compte (réutilisé) -->
+  <div id="accountError" class="hidden fixed inset-0 z-[999999] flex flex-col items-center justify-center bg-zinc-950/90 backdrop-blur p-6 text-center">
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-10"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126Z"/></svg>
+    <p class="mt-4 text-lg font-semibold">Session Riot expirée ?</p>
+    <p class="mt-1 text-sm text-zinc-300">Relie ton compte pour continuer.</p>
+    <button id="linkRiotError" class="mt-4 btn">Lier mon compte Riot</button>
+  </div>
+
+  <!-- Loader global + messages dynamiques (réutilisé) -->
+  <div id="globalLoader" class="hidden fixed inset-0 z-[99999999] flex flex-col items-center justify-center bg-zinc-950/90 backdrop-blur">
+    <div class="w-12 h-12 border-4 border-white/20 border-t-white rounded-full animate-spin"></div>
+    <p class="mt-4 text-sm text-zinc-300" id="loaderText">Chargement…</p>
+  </div>
+
+  <!-- Login overlay (réutilisé) -->
+  <div id="overlay" class="hidden fixed inset-0 z-[99999999]">
+    <iframe id="authFrame" src="about:blank" class="w-[95vw] h-[95vh] m-auto rounded-2xl border border-white/10 shadow-2xl bg-black"></iframe>
+  </div>
+  <div id="overlay_load" class="hidden fixed inset-0 z-[99999999]">
+    <div class="absolute inset-0 backdrop-blur-md bg-black/50"></div>
+    <div class="relative h-full p-6 grid place-items-center">
+      <div class="w-full max-w-xl glass rounded-3xl border border-white/10 p-8 text-center">
+        <p class="text-lg font-semibold">Connexion à Riot…</p>
+        <p class="text-sm text-white/70 mt-1">Ferme cette fenêtre une fois la connexion effectuée.</p>
+      </div>
+    </div>
+  </div>
+
+  <header class="sticky top-0 z-40 bg-black/40 backdrop-blur border-b border-white/5">
+    <div class="mx-auto max-w-6xl px-4 py-4 flex items-center justify-between">
+      <h1 class="text-xl sm:text-2xl font-extrabold tracking-tight">VALTrack <span class="text-white/60 font-semibold">— Boutique</span></h1>
+      <div class="flex items-center gap-2">
+        <button id="refreshAll" class="btn">Rafraîchir</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Onglets -->
+  <div class="mx-auto max-w-6xl px-4 mt-6">
+    <nav class="grid grid-cols-3 gap-2">
+      <button data-tab="featured" class="tab-btn px-4 py-3 rounded-2xl glass border border-white/10 text-left font-semibold focus:outline-none">Bundles & Shop</button>
+      <button data-tab="accessories" class="tab-btn px-4 py-3 rounded-2xl glass border border-white/10 text-left font-semibold focus:outline-none">Accessory Store</button>
+      <button data-tab="battlepass" class="tab-btn px-4 py-3 rounded-2xl glass border border-white/10 text-left font-semibold focus:outline-none">Pass de combat</button>
+    </nav>
+  </div>
+
+  <main class="mx-auto max-w-6xl px-4 mt-6 space-y-8">
+    <!-- TAB: Featured / Shop perso -->
+    <section id="tab-featured" class="space-y-6">
+      <div class="flex items-center justify-between">
+        <h2 class="text-lg font-bold">Featured Bundle</h2>
+        <div id="featuredStatus" class="text-xs text-white/60">Prêt</div>
+      </div>
+      <div id="featuredBundle" class="grid sm:grid-cols-2 gap-4"></div>
+
+      <div class="flex items-center justify-between mt-6">
+        <h3 class="text-lg font-bold">Notre shop</h3>
+        <div class="flex items-center gap-3">
+          <span id="shopTimer" class="text-xs text-white/60"></span>
+          <div id="personalStatus" class="text-xs text-white/60">Prêt</div>
+        </div>
+      </div>
+      <div id="shop-grid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4"></div>
+    </section>
+
+    <!-- TAB: Accessories -->
+    <section id="tab-accessories" class="hidden space-y-6">
+      <div class="flex items-center justify-between">
+        <h2 class="text-lg font-bold">Accessory Store</h2>
+        <div id="accStatus" class="text-xs text-white/60">Prêt</div>
+      </div>
+      <div id="accessoryGrid" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4"></div>
+    </section>
+
+    <!-- TAB: Battlepass (placeholder) -->
+    <section id="tab-battlepass" class="hidden space-y-6">
+      <div class="flex items-center justify-between">
+        <h2 class="text-lg font-bold">Pass de combat</h2>
+        <div id="bpStatus" class="text-xs text-white/60">Bientôt</div>
+      </div>
+      <div class="p-6 rounded-2xl glass border border-white/10">
+        <p class="text-white/70">Prévu : chargement via <span class="font-mono">PluginStores</span>. Section en attente.</p>
+      </div>
+    </section>
+  </main>
+
+  <!-- Modal -->
+  <dialog id="modal" class="rounded-2xl w-full max-w-3xl bg-zinc-900/95 text-zinc-100 p-0 border border-white/10">
+    <div class="p-4 flex items-center justify-between border-b border-white/10">
+      <h3 id="modalTitle" class="font-bold"></h3>
+      <button onclick="closeModal()" class="btn">Fermer</button>
+    </div>
+    <div id="modalBody" class="p-4 grid sm:grid-cols-2 gap-4 max-h-[70vh] overflow-auto"></div>
+  </dialog>
+  <div id="modalBackdrop" class="fixed inset-0 bg-black/60 hidden"></div>
+
+  <template id="cardTpl">
+    <article class="glass rounded-2xl border border-white/10 overflow-hidden">
+      <div class="aspect-[16/9] bg-white/5 grid place-items-center">
+        <img class="h-full  object-contain" alt=""/>
+      </div>
+      <div class="p-3 space-y-1">
+        <h4 class="font-semibold line-clamp-1"></h4>
+        <p class="text-sm text-white/60 line-clamp-2"></p>
+        <div class="flex items-center justify-between pt-2">
+          <span class="text-xs text-white/50"></span>
+          <button class="btn text-xs">Détails</button>
+        </div>
+      </div>
+    </article>
+  </template>
+
+  <template id="skeletonTpl">
+    <div class="glass rounded-2xl border border-white/10 overflow-hidden">
+      <div class="aspect-[16/9] bg-white/5 shimmer"></div>
+      <div class="p-3 space-y-2">
+        <div class="h-4 w-2/3 bg-white/10 rounded shimmer"></div>
+        <div class="h-3 w-5/6 bg-white/10 rounded shimmer"></div>
+        <div class="h-3 w-1/3 bg-white/10 rounded shimmer"></div>
+      </div>
+    </div>
+  </template>
+
+  <script>
+    // ===== Helpers essentiels (repris de static/app.html) =====
+    const $ = s => document.querySelector(s);
+
+    // Cookies / session
+    function setCookie(name, value, days=1){ const expires = new Date(Date.now()+days*864e5).toUTCString(); document.cookie = `${name}=${encodeURIComponent(value)}; Expires=${expires}; Path=/; SameSite=Lax`; }
+    function getCookie(name){ return document.cookie.split('; ').reduce((acc,v)=>{ const [k,val]=v.split('='); return k===name?decodeURIComponent(val):acc; }, null); }
+    function getSessionToken(){ return localStorage.getItem('session_token') || getCookie('session_token'); }
+
+    // Fetch API backend (Authorization: Session <token>)
+    async function api(path, opt={}){
+      const t = getSessionToken();
+      if(!t){ window.location.href = "/login"; throw new Error("No session token"); }
+      const r = await fetch(path, { ...opt, headers: { ...(opt.headers||{}), Authorization: `Session ${t}` }, credentials:'include' });
+      if(!r.ok) throw new Error(`${path}: ${r.status}`);
+      const ct = r.headers.get('content-type')||''; return ct.includes('application/json') ? r.json() : r.text();
+    }
+
+    // Overlays / loaders
+    function showGlobalLoader(){ $('#globalLoader').classList.remove('hidden'); }
+    function hideGlobalLoader(){ $('#globalLoader').classList.add('hidden'); }
+    function showaccountError(){ $('#accountError').classList.remove('hidden'); }
+    function hideaccountError(){ $('#accountError').classList.add('hidden'); }
+    let loaderIndex=0, loaderTimer=null; const loaderMessages=["Connexion à l'API Riot…","Récupération des données…","Mise en place de la boutique…","Nous demandons à Riot","Ils ont dit non… mais on insiste","Presque prêt…"];
+    function startLoaderMessages(){ const el=$('#loaderText'); if(!el) return; loaderIndex=0; el.textContent=loaderMessages[0]; loaderTimer=setInterval(()=>{ loaderIndex=(loaderIndex+1)%loaderMessages.length; el.textContent=loaderMessages[loaderIndex]; },2000); }
+    function stopLoaderMessages(){ clearInterval(loaderTimer); }
+
+    // Login overlay (relay déjà côté serveur)
+    function toRelay(url){ const u=new URL(url); return `/riot-auth/${u.port}/`; }
+    const overlay = document.getElementById("overlay");
+    const frame = document.getElementById("authFrame");
+    async function startLogin(){
+      const r = await fetch("/request_login", { method:"POST" });
+      if(!r.ok){ console.error("Erreur /request_login"); return; }
+      const data = await r.json();
+      await new Promise(res=>setTimeout(res, 3000));
+      frame.src = toRelay(data.browser_url);
+      $('#overlay_load').classList.add('hidden');
+      overlay.classList.remove('hidden');
+      const sid = data.session_id; const start = Date.now(); const TIMEOUT_MS = 120000;
+      while(Date.now()-start < TIMEOUT_MS){
+        await new Promise(res=>setTimeout(res, 1500));
+        const w = await fetch(`/wait_token?session_id=${encodeURIComponent(sid)}&timeout=1`);
+        if(w.ok){ const token = await w.text(); if(token && token.length>10){ setCookie('riot_token', token, 7); overlay.classList.add('hidden'); break; } }
+      }
+      await fetch("/riot/link/complete",{ method:"POST", headers:{"Content-Type":"application/json","Authorization":"Session "+localStorage.getItem("session_token")}, body: JSON.stringify({}) });
+      location.reload();
+    }
+    $('#linkRiotError').onclick = async ()=>{ $('#overlay_load').classList.remove('hidden'); startLogin(); };
+
+    // ===== Storefront cache =====
+    let storefrontCache = null; let storefrontAt = 0;
+    async function getStorefront(force=false){ if(storefrontCache && !force) return storefrontCache; const data = await api('/valorant/storefront'); storefrontCache = typeof data==='string'? JSON.parse(data): data; storefrontAt = Date.now(); return storefrontCache; }
+
+    // ===== Valorant API catalogues =====
+    const VA_BASE = 'https://valorant-api.com/v1';
+    const catalogs = { skins:null, sprays:null, cards:null, buddies:null, bundles:new Map() };
+    async function fetchJson(url){ const r = await fetch(url); if(!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); }
+    async function loadCatalog(type){
+      if(type==='skins' && !catalogs.skins) catalogs.skins = await fetchJson(`${VA_BASE}/weapons/skins`);
+      if(type==='sprays' && !catalogs.sprays) catalogs.sprays = await fetchJson(`${VA_BASE}/sprays`);
+      if(type==='cards' && !catalogs.cards) catalogs.cards = await fetchJson(`${VA_BASE}/playercards`);
+      if(type==='buddies' && !catalogs.buddies) catalogs.buddies = await fetchJson(`${VA_BASE}/buddies`);
+      return catalogs[type];
+    }
+    async function getBundle(uuid){ if(catalogs.bundles.has(uuid)) return catalogs.bundles.get(uuid); const d = await fetchJson(`${VA_BASE}/bundles/${uuid}`); catalogs.bundles.set(uuid,d); return d; }
+
+    // ===== UI utils =====
+    function el(tag, cls){ const e=document.createElement(tag); if(cls) e.className=cls; return e; }
+    function fillSkeleton(container, n=4){ container.innerHTML=''; const tpl=document.getElementById('skeletonTpl'); for(let i=0;i<n;i++){ container.appendChild(tpl.content.cloneNode(true)); } }
+    function openModal(){ modal.showModal(); modalBackdrop.classList.remove('hidden'); modalBackdrop.onclick = closeModal; }
+    function closeModal(){ modal.close(); modalBackdrop.classList.add('hidden'); }
+
+    // ===== Onglets (chargement indépendant, lazy) =====
+    const tabs = ['featured','accessories','battlepass'];
+    document.querySelectorAll('.tab-btn').forEach(btn=> btn.addEventListener('click', ()=> selectTab(btn.dataset.tab)) );
+    const loaded = { featured:false, accessories:false };
+    function selectTab(id){ tabs.forEach(t=> document.getElementById(`tab-${t}`).classList.toggle('hidden', t!==id)); if(id==='featured' && !loaded.featured) loadFeatured(); if(id==='accessories' && !loaded.accessories) loadAccessories(); }
+
+    // ===== Section 1 : FeaturedBundle + "Notre shop" (comme app) =====
+    const fmt = new Intl.NumberFormat('fr-FR');
+    function findFirstImage(obj){ if (!obj || typeof obj !== 'object') return null; if (obj.displayIcon) return obj.displayIcon; for (const k of Object.keys(obj)){ const v=obj[k]; if (v && typeof v==='object'){ const r=findFirstImage(v); if (r) return r; } } return null; }
+    function change_image(id, img){ const card = document.querySelector(`.skin_image[data-offer="${id}"]`); if(card) card.src = img; }
+
+    async function loadFeatured(){
+      const status = $('#featuredStatus'); const wrap = $('#featuredBundle'); status.textContent='Chargement…'; fillSkeleton(wrap,2);
+      try{
+        const sf = await getStorefront();
+        const fb = sf?.FeaturedBundle?.Bundle;
+        console.log(fb)
+        if(fb?.DataAssetID){ const b = await getBundle(fb.DataAssetID);  renderFeaturedBundle(wrap, b?.data, sf?.FeaturedBundle); }
+        else { wrap.innerHTML = '<div class="p-6 glass rounded-2xl border border-white/10">Aucun bundle en vedette.</div>'; }
+        status.textContent = new Date().toLocaleTimeString();
+      }catch(e){ console.error(e); wrap.innerHTML = `<div class="p-6 glass rounded-2xl border border-rose-500/30 text-rose-300">Erreur: ${e.message}</div>`; status.textContent='Erreur'; }
+      // Notre shop (mêmes cartes que l'app)
+      await getStore();
+      loaded.featured = true;
+    }
+
+    function renderFeaturedBundle(container, bundleData, fbRaw){
+      container.innerHTML = '';
+      const tpl = document.getElementById('cardTpl'); const node = tpl.content.cloneNode(true);
+      const img = node.querySelector('img'); const title = node.querySelector('h4'); const desc = node.querySelector('p'); const meta = node.querySelector('span'); const btn = node.querySelector('button');
+      const icon = bundleData?.displayIcon2 || bundleData?.displayIcon || bundleData?.verticalPromoImage || bundleData?.promoImage || '';
+      img.src = icon; img.alt = bundleData?.displayName || 'Bundle';
+      title.textContent = bundleData?.displayName || 'Bundle';
+      desc.textContent = bundleData?.description || 'Bundle vedette';
+      const remaining = fbRaw?.DurationRemainingInSeconds; if(typeof remaining==='number'){ const end = Date.now()+remaining*1000; const tick=()=>{ const left=Math.max(0,end-Date.now()); meta.textContent = left? formatDuration(left/1000) : 'Expire bientôt'; if(left>0) requestAnimationFrame(tick); }; tick(); }
+      btn.addEventListener('click', async ()=>{ const items = (fbRaw?.Items || fbRaw?.ItemOffers || []).map(x=>({ itemType:x?.Item?.ItemTypeID||x?.ItemTypeID, itemId:x?.Item?.ItemID||x?.ItemID, qty:x?.Item?.Quantity||x?.Quantity||1, basePrice:x?.BasePrice })); openBundleModal(bundleData?.displayName||'Bundle', items); });
+      container.appendChild(node);
+    }
+
+    async function resolveItemCard(uuid){ const skins=await loadCatalog('skins'); const s=skins?.data?.find(x=>x.uuid===uuid); if(s) return { name:s.displayName, image:s.displayIcon||s.chromas?.[0]?.displayIcon, type:'Skin', raw:s };
+      const sprays=await loadCatalog('sprays'); const sp=sprays?.data?.find(x=>x.uuid===uuid); if(sp) return { name:sp.displayName, image:sp.fullTransparentIcon||sp.displayIcon, type:'Spray', raw:sp };
+      const cards=await loadCatalog('cards'); const pc=cards?.data?.find(x=>x.uuid===uuid); if(pc) return { name:pc.displayName, image:pc.largeArt||pc.wideArt||pc.smallArt, type:'Player Card', raw:pc };
+      const buds=await loadCatalog('buddies'); const bd=buds?.data?.find(x=>x.uuid===uuid); if(bd) return { name:bd.displayName, image:bd.displayIcon, type:'Buddy', raw:bd };
+      return { name: uuid, image:'', type:'Item', raw:null };
+    }
+
+    function makeItemCard(card, qty=1, price){ 
+      const tpl=document.getElementById('cardTpl'); 
+      const node=tpl.content.cloneNode(true); 
+      const img=node.querySelector('img'); 
+      const title=node.querySelector('h4');
+       const desc=node.querySelector('p'); 
+       const meta=node.querySelector('span'); 
+       const btn=node.querySelector('button'); 
+       img.src=card.image||'';
+        img.alt=card.name; 
+       title.textContent=card.name; 
+       desc.textContent=card.type||'';
+        meta.textContent=[qty>1?`x${qty}`:null, price?`${fmt.format(price)} VP`:null].filter(Boolean).join(' · '); 
+        btn.addEventListener('click', ()=> openGenericModal(card.name, card.raw||card)); return node; }
+
+    async function openBundleModal(title, items){ const body=$('#modalBody'); body.innerHTML=''; $('#modalTitle').textContent=title; for(const it of items){ const card = await resolveItemCard(it.itemId); body.appendChild(makeItemCard(card, it.qty, it.basePrice)); } openModal(); }
+    function openGenericModal(title, payload){ $('#modalTitle').textContent=title; const body=$('#modalBody'); body.innerHTML=''; const left=el('div','space-y-3'); const imgWrap=el('div','aspect-[16/9] bg-white/5 rounded-xl overflow-hidden'); const img=el('img','w-full h-full object-contain'); img.src=payload?.displayIcon||payload?.fullTransparentIcon||payload?.displayIcon2||payload?.verticalPromoImage||payload?.largeArt||payload?.wideArt||payload?.smallArt||payload?.image||''; img.alt=title; imgWrap.appendChild(img); left.appendChild(imgWrap); const right=el('div','text-sm text-white/80 space-y-2'); const pre=el('pre','text-xs bg-white/5 rounded-xl p-3 overflow-auto'); pre.textContent = JSON.stringify(payload, null, 2); right.appendChild(pre); body.append(left,right); openModal(); }
+
+    // ===== Notre shop (repris de app.html > getStore) =====
+    let __shopForShare = [];
+    function nextUtcMidnight(){ const now=new Date(); const next=new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()+1, 0,0,0)); return next.getTime(); }
+    let countdownTimer=null; function startShopCountdown(){ clearInterval(countdownTimer); const out=$('#shopTimer'); if(!out) return; function tick(){ const left=Math.max(0, nextUtcMidnight()-Date.now()); const s=Math.floor(left/1000); const h=String(Math.floor(s/3600)).padStart(2,'0'); const m=String(Math.floor((s%3600)/60)).padStart(2,'0'); const sec=String(s%60).padStart(2,'0'); out.textContent = `Renouvellement dans ${h}:${m}:${sec}`; } tick(); countdownTimer=setInterval(tick,1000); }
+
+    async function getStore(){
+      try{
+        const data = await api('/valorant/featured_store');
+        const store = typeof data === 'string' ? JSON.parse(data) : data;
+        const grid = document.getElementById('shop-grid'); grid.innerHTML = '';
+        const cards = Object.entries(store).slice(0,4).map(([offerId, item])=>{
+          const s = (item.name && item.name.data) || {};
+          const title = s.displayName || 'Skin';
+          const cost = item.cost ?? Number(s.know_cost || 0);
+          const ContentTier = s.contentTierUuid;
+          const firstImg = s.displayIcon || findFirstImage(s) || findFirstImage(item) || '';
+          const variations = Object.values(s.chromas || {});
+          let varDots = '';
+          if (variations.length > 1) {
+            varDots = variations.slice(0,4).map(v=>{
+              const thumb = v.swatch || findFirstImage(v) || firstImg;
+              const img   = v.displayIcon || findFirstImage(v) || firstImg;
+              return `<button class='h-7 w-7 rounded border border-white/10 hover:border-white/20 transition' title='${v.displayName||''}' style="background:url('${thumb}') center/cover" onclick="change_image('${offerId}','${img}')"></button>`; }).join('');
+          }
+          return `
+          <article class="skin-card group glass rounded-2xl border border-white/10 overflow-hidden p-3 transition hover:translate-y-[-2px] hover:bg-white/[.08]">
+            <div class="aspect-[4/3] relative rounded-xl bg-white/5 overflow-hidden grid place-items-center">
+              <img class="absolute top-3 right-3 h-8 opacity-90" alt="tier" src="https://media.valorant-api.com/contenttiers/${ContentTier}/displayicon.png">
+              ${firstImg ? `<img src="${firstImg}" data-offer="${offerId}" class="h-full w-full object-contain skin_image transition"/>` : `<div class='h-full w-full shimmer'></div>`}
+            </div>
+            <div class="block md:hidden">
+              <p class="mt-2 font-medium">${title}</p>
+              <p class="text-sm text-zinc-400">${fmt.format(cost)} VP</p>
+              <a href="/weapon?uuid=${offerId}" class="mt-3 inline-block btn">Détails</a>
+            </div>
+            <div class="hidden md:block">
+              <p class="mt-2 font-medium">${title}</p>
+              <p class="text-sm text-zinc-400">${fmt.format(cost)} VP</p>
+              <div class="mt-2 flex justify-center gap-2">${varDots}</div>
+              <a href="/weapon?uuid=${offerId}" class="mt-3 inline-block btn">Détails</a>
+            </div>
+          </article>`; });
+        grid.innerHTML = cards.join('');
+        __shopForShare = Object.entries(store).map(([offerId, item])=>{ const s=(item.name && item.name.data)||{}; return { id:offerId, title:s.displayName||'Skin', tier:s.contentTierUuid||'', price:item.cost ?? Number(s.know_cost||0), main:s.displayIcon || findFirstImage(s) || findFirstImage(item) || '', chromas:Object.values(s.chromas||{}).map(c=>({ name:c.displayName||'', swatch:c.swatch||findFirstImage(c)||'', icon:c.displayIcon||findFirstImage(c)||'' })) }; });
+        startShopCountdown();
+        $('#personalStatus').textContent = new Date().toLocaleTimeString();
+      }catch(e){ console.warn('getStore', e); $('#personalStatus').textContent='Erreur'; document.getElementById('shop-grid').innerHTML = `<div class='p-6 glass rounded-2xl border border-rose-500/30 text-rose-300'>Erreur: ${e.message}</div>`; }
+    }
+
+    function formatDuration(s){ s=Math.floor(s); const d=Math.floor(s/86400); s%=86400; const h=Math.floor(s/3600); s%=3600; const m=Math.floor(s/60); const sec=s%60; return [d?d+"j":null, String(h).padStart(2,'0')+":"+String(m).padStart(2,'0')+":"+String(sec).padStart(2,'0')].filter(Boolean).join(' '); }
+
+    // ===== Section 2 : Accessory Store =====
+    async function loadAccessories(){ 
+    const status=$('#accStatus'); 
+    const grid=$('#accessoryGrid'); 
+    status.textContent='Chargement…'; 
+    fillSkeleton(grid,8); 
+    try{ 
+    const sf=await getStorefront(); 
+    const acc = sf.AccessoryStore.AccessoryStoreOffers; 
+    grid.innerHTML='';
+    
+     for(const entry of acc){ 
+     const itemId = entry?.Offer?.Rewards[0] 
+     const qty = entry?.Item?.Quantity || entry?.Quantity || 1; 
+     const price = entry?.Offer.Cost["85ca954a-41f2-ce94-9b45-8ca3dd39a00d"] ; 
+
+     
+     const card = await resolveItemCard(itemId); 
+
+     mapping = {
+      "01bb38e1-da47-4e6a-9b3d-945fe4655707":	"https://media.valorant-api.com/agents/",
+      "f85cb6f7-33e5-4dc8-b609-ec7212301948":	"https://media.valorant-api.com/contracts/",
+      "d5f120f8-ff8c-4aac-92ea-f2b5acbe9475":	"https://media.valorant-api.com/sprays/",
+      "dd3bf334-87f3-40bd-b043-682a57a8dc3a":	"https://media.valorant-api.com/buddylevels/",
+      "3f296c07-64c3-494c-923b-fe692a4fa1bd":	"https://media.valorant-api.com/playercards/",
+      "de7caa6b-adf7-4588-bbd1-143831e786c6":	"https://media.valorant-api.com/playertitles/"
+     }
+     mappingAPI = {
+      "01bb38e1-da47-4e6a-9b3d-945fe4655707":	"https://valorant-api.com/v1/agents/",
+      "f85cb6f7-33e5-4dc8-b609-ec7212301948":	"https://valorant-api.com/v1/contracts/",
+      "d5f120f8-ff8c-4aac-92ea-f2b5acbe9475":	"https://valorant-api.com/v1/sprays/",
+      "dd3bf334-87f3-40bd-b043-682a57a8dc3a":	"https://valorant-api.com/v1/buddies/levels/",
+      "3f296c07-64c3-494c-923b-fe692a4fa1bd":	"https://valorant-api.com/v1/playercards/",
+      "de7caa6b-adf7-4588-bbd1-143831e786c6":	"https://valorant-api.com/v1/playertitles/"
+     }
+      mappingName = {
+      "01bb38e1-da47-4e6a-9b3d-945fe4655707":	"Agent",
+      "f85cb6f7-33e5-4dc8-b609-ec7212301948":	"Contrat",
+      "d5f120f8-ff8c-4aac-92ea-f2b5acbe9475":	"Spray",
+      "dd3bf334-87f3-40bd-b043-682a57a8dc3a":	"Charme",
+      "3f296c07-64c3-494c-923b-fe692a4fa1bd":	"Carte",
+      "de7caa6b-adf7-4588-bbd1-143831e786c6":	"Titre"
+     }
+      const tpl=document.getElementById('cardTpl'); 
+      const node=tpl.content.cloneNode(true); 
+      const img=node.querySelector('img'); 
+      const title=node.querySelector('h4');
+       const desc=node.querySelector('p'); 
+       const meta=node.querySelector('span'); 
+       const btn=node.querySelector('button'); 
+      if(itemId["ItemTypeID"] == "de7caa6b-adf7-4588-bbd1-143831e786c6"){
+               text = await fetchJson("https://valorant-api.com/v1/playertitles/"+itemId["ItemID"]+"?language=fr-FR")
+               img.src= "https://placehold.co/600x400?text="+text["data"]["titleText"]
+      }else{
+               img.src= mapping[itemId["ItemTypeID"]]+itemId["ItemID"]+"/displayicon.png"
+
+      }
+
+        info = await fetchJson( (mappingAPI[itemId["ItemTypeID"]]+itemId["ItemID"]+"?language=fr-FR"))
+        console.log(info)
+        img.alt=info.data.displayName; 
+       title.textContent = info.data.displayName; 
+       desc.textContent=mappingName[itemId["ItemTypeID"]];
+        meta.textContent=[qty>1?`x${qty}`:null, price?`${fmt.format(price)} KP`:null].filter(Boolean).join(' · '); 
+        btn.addEventListener('click', ()=> openGenericModal(card.name, card.raw||card)); 
+
+     grid.appendChild(node); 
+     } 
+     status.textContent = new Date().toLocaleTimeString(); 
+     loaded.accessories=true; 
+     }catch(e){ 
+     console.error(e); 
+     grid.innerHTML = `<div class="p-6 glass rounded-2xl border border-rose-500/30 text-rose-300">Erreur: ${e.message}</div>`; status.textContent='Erreur'; 
+     } }
+
+    // ===== Tabs & Refresh =====
+    document.getElementById('refreshAll').addEventListener('click', ()=>{ const cur = tabs.find(t=>!document.getElementById(`tab-${t}`).classList.contains('hidden')) || 'featured'; if(cur==='featured'){ loaded.featured=false; loadFeatured(); } if(cur==='accessories'){ loaded.accessories=false; loadAccessories(); } });
+
+    // Boot minimal pour la page boutique
+    async function boot(){ try{ showGlobalLoader(); startLoaderMessages(); selectTab('featured'); } finally { hideGlobalLoader(); stopLoaderMessages(); } }
+    window.addEventListener('load', boot);
+  </script>
+</body>
+</html>

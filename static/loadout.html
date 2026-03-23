@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>VALTrack — Loadout</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+  <style>
+    :root{--ink:#cdd5e1;--line:rgba(255,255,255,.12);--panel:rgba(255,255,255,.04)}
+    body{font-family:Inter,ui-sans-serif,system-ui;background:
+      radial-gradient(1200px 700px at 70% 30%,#0e1726,#0b0f16 55%) #0b0f16;color:#e5e7eb}
+    .hdr{backdrop-filter:blur(8px);background:rgba(0,0,0,.45);border-bottom:1px solid rgba(255,255,255,.1)}
+    .panel{background:var(--panel);border:1px solid var(--line);border-radius:16px}
+    .title{letter-spacing:.06em}
+    .slot{height:124px;border:1px solid var(--line);border-radius:12px;background:rgba(255,255,255,.03);
+      display:grid;grid-template-columns:1fr 42px}
+    .slot .img{position:relative;display:grid;place-items:center;overflow:hidden;border-radius:12px 0 0 12px}
+    .slot .img img{max-width:95%;max-height:95%;object-fit:contain;opacity:.98;filter:drop-shadow(0 8px 18px rgba(0,0,0,.6))}
+    .slot .buddy{display:grid;place-items:center;border-left:1px solid var(--line)}
+    .slot .buddy img{max-width:30px;max-height:30px;object-fit:contain}
+    .wname{font-size:.65rem;text-transform:uppercase;letter-spacing:.12em;color:var(--ink);margin-top:.35rem}
+    .cat{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+    @media (min-width:1280px){.cat{grid-template-columns:repeat(2,minmax(0,1fr))}}
+    .card-wrap{position:relative;overflow:hidden;border-radius:18px;border:1px solid rgba(255,255,255,.1);
+      background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.02))}
+    .wheel{position:relative;width:260px;height:260px;margin-inline:auto}
+    .wheel img.bg{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;opacity:.92;filter:drop-shadow(0 8px 18px rgba(0,0,0,.45))}
+    .wheel .slotw{position:absolute;width:78px;height:78px;border-radius:12px;background:rgba(255,255,255,.06);
+      border:1px solid rgba(255,255,255,.14);display:grid;place-items:center;overflow:hidden}
+    .wheel .slotw img{max-width:100%;max-height:100%;object-fit:contain}
+    .pos-top{left:50%;top:6%;transform:translate(-50%,0)}
+    .pos-left{left:5%;top:50%;transform:translate(0,-50%)}
+    .pos-right{right:5%;top:50%;transform:translate(0,-50%)}
+    .pos-bottom{left:50%;bottom:3%;transform:translate(-50%,0)}
+    .weapon-card {
+  width: 160px;   /* au lieu de ~220px */
+  height: 80px;   /* moins haut */
+  margin: 4px;    /* moins d’espace */
+}
+.weapon-card img {
+  max-height: 60px;
+}
+.loadout-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr); /* 4 colonnes compactées */
+  gap: 8px; /* au lieu de 20px */
+}
+
+#wheelBg {
+  width: 100%;
+  height: 100%;
+}
+.wheel-slot img {
+  width: 48px;
+  height: 48px;
+}
+.category-title {
+  font-size: 14px;
+  margin-bottom: 4px;
+}
+/* 1) le conteneur clippe tout */
+.slot{
+  overflow:hidden;                    /* nouveau */
+  grid-template-columns:minmax(0,1fr) 42px; /* évite l’overlap */
+}
+.slot .img {
+  height: 100%;            /* hauteur standard */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.slot .img img {
+  max-height: 100%;        /* image calée sur la hauteur */
+  width: auto;             /* garde le ratio */
+  object-fit: contain;
+}
+
+/* badge niveau au-dessus de la carte */
+.lvl-badge{
+  position:absolute; left:50%; top:-12px; transform:translateX(-50%);
+  min-width:42px; height:24px; padding:0 8px;
+  display:inline-grid; place-items:center;
+  font-weight:800; font-size:12px; letter-spacing:.06em;
+  border:1px solid rgba(255,255,255,.25); border-radius:999px;
+  background:linear-gradient(180deg,rgba(255,255,255,.16),rgba(255,255,255,.06));
+}.cat{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+@media (max-width:640px){
+  .cat{grid-template-columns:1fr; gap:10px;}
+  .slot{height:96px;}       /* compact sur mobile (optionnel) */
+  .wname{font-size:.6rem;}  /* optionnel */
+}
+
+
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <header class="sticky top-0 z-40 border-b border-white/10 bg-zinc-950/80 backdrop-blur">
+    <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <a href="/" class="flex items-center gap-2">
+        <span class="inline-grid place-items-center h-9 w-9 rounded-xl bg-white/10">
+          <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M12 2v4m0 12v4M2 12h4m12 0h4"/>
+          </svg>
+        </span>
+        <span class="font-extrabold tracking-tight">VALTrack</span>
+      </a>
+      <a href="/app" class="text-sm text-zinc-300 hover:text-white">← App</a>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 py-6 grid grid-cols-1 xl:grid-cols-[1fr_360px] gap-6">
+    <section id="cols" class="space-y-6"></section>
+    <aside class="space-y-6">
+   <div class="card-wrap p-3">
+  <div class="relative">
+    <span id="lvlBadge" class="lvl-badge hidden">0</span>
+  </div>
+  <div class="flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <img id="playerCard" class="h-24 w-40 object-cover rounded-lg hidden" alt="Carte de joueur">
+      <div>
+        <p id="playerTitle" class="font-semibold truncate max-w-[200px]">—</p>
+        <p class="text-xs text-zinc-400">Niveau <span id="accountLevel">—</span></p>
+      </div>
+    </div>
+    <img id="levelBorder" class="h-10 w-10 object-contain hidden" alt="Border">
+  </div>
+</div>
+
+      <div class="panel p-4">
+        <h3 class="text-sm title font-extrabold tracking-wider text-zinc-300 mb-2">EXPRESSIONS</h3>
+        <div class="wheel">
+          <img id="wheelBg" class="bg" alt="Wheel"
+               src="https://www.valorantbuilder.com/assets/spray_wheel-6jxut7Wa.png">
+          <div class="slotw pos-top"><img id="sprTop" alt=""></div>
+          <div class="slotw pos-left"><img id="sprLeft" alt=""></div>
+          <div class="slotw pos-right"><img id="sprRight" alt=""></div>
+          <div class="slotw pos-bottom"><img id="sprBottom" alt=""></div>
+        </div>
+      </div>
+    </aside>
+  </main>
+
+  <script>
+    
+    const $ = (s, r=document)=>r.querySelector(s);
+    const token = ()=> localStorage.getItem('session_token') ||
+      document.cookie.split('; ').find(v=>v.startsWith('session_token='))?.split('=')[1];
+    async function api(path, opt={}){
+      const t = token(); if(!t) throw new Error('Session manquante');
+      const r = await fetch(path, { ...opt, headers:{ ...(opt.headers||{}), Authorization:`Session ${t}` }, credentials:'include' });
+      if(!r.ok) throw new Error(path+': '+r.status);
+      return r.json();
+    }
+
+    // ===== Valorant API indexes =====
+    const IDX = { weapons:{}, skins:{}, chromas:{}, skinLvls:{}, buddies:{}, buddyLvls:{}, sprays:{}, sprayLvls:{}, cards:{}, titles:{}, borders:{} };
+    async function indexAll(){
+      const [weaRes, budRes, sprRes, cardsRes, titlesRes, bordersRes] = await Promise.all([
+        fetch('https://valorant-api.com/v1/weapons?language=fr-FR'),
+        fetch('https://valorant-api.com/v1/buddies?language=fr-FR'),
+        fetch('https://valorant-api.com/v1/sprays?language=fr-FR'),
+        fetch('https://valorant-api.com/v1/playercards?language=fr-FR'),
+        fetch('https://valorant-api.com/v1/playertitles?language=fr-FR'),
+        fetch('https://valorant-api.com/v1/levelborders?language=fr-FR')
+      ]);
+      const wea=(await weaRes.json()).data||[], buds=(await budRes.json()).data||[], sprs=(await sprRes.json()).data||[];
+      const cards=(await cardsRes.json()).data||[], titles=(await titlesRes.json()).data||[], borders=(await bordersRes.json()).data||[];
+      for(const w of wea){ IDX.weapons[w.uuid]=w; for(const s of (w.skins||[])){ IDX.skins[s.uuid]=s; for(const c of (s.chromas||[])) IDX.chromas[c.uuid]=c; for(const l of (s.levels||[])) IDX.skinLvls[l.uuid]=l; } }
+      for(const b of buds){ IDX.buddies[b.uuid]=b; for(const l of (b.levels||[])) IDX.buddyLvls[l.uuid]=l; }
+      for(const s of sprs){ IDX.sprays[s.uuid]=s; for(const l of (s.levels||[])) IDX.sprayLvls[l.uuid]=l; }
+      for(const c of cards) IDX.cards[c.uuid]=c; for(const t of titles) IDX.titles[t.uuid]=t; for(const b of borders) IDX.borders[b.uuid]=b;
+    }
+    const img = (o)=>{ if(!o) return ''; for(const k of ['displayIcon','displayIconSmall','fullRender','swatch','icon']) if(o[k]) return o[k]; return ''; };
+    const buddyInfo = (levelUuid)=>{ const lvl=IDX.buddyLvls[levelUuid]; if(!lvl) return null; const bud=Object.values(IDX.buddies).find(x=>x.levels?.some(y=>y.uuid===levelUuid)); return {name:bud?.displayName||lvl.displayName||'Buddy', icon:img(lvl)||img(bud)}; };
+// Fallback flex: tente une carte de joueur (ou tout asset avec image)
+const flexIcon = (assetId) => {
+  
+  return 'https://media.valorant-api.com/flex/'+assetId+'/displayicon.png'; 
+};
+
+    // Categories layout mimicking Valorant
+    const CATS = [
+      { key:'Sidearm',   label:'ARMES DE POING' },
+      { key:'SMG',       label:'PM' },
+      { key:'Rifle',     label:'FUSILS' },
+      { key:'Sniper',    label:'FUSILS DE SNIPER' },
+      { key:'Shotgun',   label:'FUSILS À POMPE' },
+      { key:'Heavy',     label:'MITRAILLEUSES' },
+      { key:'Melee',     label:'MÊLÉE' },
+    ];
+function isDefaultSkin(skin, weapon) {
+  if (!skin) return true; // rien appliqué
+  const name = (skin.displayName || '').toLowerCase();
+  // skins de base: "Standard", "Default", "Melee"/nom d’arme sans tier
+  if (/standard|default/.test(name)) return true;
+  if (!skin.contentTierUuid && name.includes((weapon.displayName||'').toLowerCase())) return true;
+  return false;
+}
+
+    function renderCategories(loadout){
+      const guns = loadout.Guns||[];
+      const byWeap = new Map(guns.map(g=>[g.ID,g]));
+      const cols = $('#cols'); cols.innerHTML='';
+
+      for(const cat of CATS){
+        const list = Object.values(IDX.weapons).filter(w => (w.category||'').includes(cat.key))
+          .sort((a,b)=> a.displayName.localeCompare(b.displayName));
+
+        const section = document.createElement('section');
+        section.className='panel p-4';
+        section.innerHTML = `<h3 class="text-sm title font-extrabold tracking-wider text-zinc-300 mb-3">${cat.label}</h3><div class="cat"></div>`;
+        const grid = section.querySelector('.cat');
+
+        for(const w of list){
+const g = byWeap.get(w.uuid); // peut être undefined
+const skin  = g ? IDX.skins[g.SkinID]      : null;
+const chroma= g ? IDX.chromas[g.ChromaID]  : null;
+const lvl   = g ? IDX.skinLvls[g.SkinLevelID] : null;
+
+const noSkin = isDefaultSkin(skin, w);
+const mainImg = noSkin
+  ? (w.displayIcon || img(w))            // rendu “de base” de l’arme
+  : (img(chroma) || img(skin) || img(lvl));
+
+// (optionnel) libellé sous le nom
+const subLabel = noSkin ? 'Skin par défaut' : (skin?.displayName || '');
+
+          const bud = g?.CharmLevelID ? buddyInfo(g.CharmLevelID) : null;
+
+          const item = document.createElement('div');
+          item.innerHTML = `
+  <div class="slot">
+    <div class="img">${mainImg?`<img src="${mainImg}" alt="${w.displayName}">`:``}</div>
+    <div class="buddy">${g?.CharmLevelID && buddyInfo(g.CharmLevelID)?.icon ? `<img src="${buddyInfo(g.CharmLevelID).icon}" alt="Buddy">`:''}</div>
+  </div>
+  <p class="wname">${w.displayName}</p>
+  ${subLabel ? `<p class="text-[10px] text-zinc-400 mt-1">${subLabel}</p>` : ``}
+`;
+
+          grid.appendChild(item);
+        }
+        cols.appendChild(section);
+      }
+    }
+// trie une seule fois
+const BORDERS_SORTED = ()=> Object.values(IDX.borders)
+  .filter(b => typeof b.levelNumber === 'number')
+  .sort((a,b)=> a.levelNumber - b.levelNumber);
+
+function pickLevelBorder(identity){
+  if (!identity || identity.HideAccountLevel) return null;
+  // 1) préférence explicite si valide
+  const pref = IDX.borders[identity.PreferredLevelBorderID];
+  if (pref) return pref;
+  // 2) sinon, meilleur border <= niveau
+  const lvl = Number(identity.AccountLevel||0);
+  const list = BORDERS_SORTED();
+  for (let i=list.length-1;i>=0;i--){
+    if (lvl >= (list[i].levelNumber||0)) return list[i];
+  }
+  return null;
+}
+
+function renderRight(identity, expressions){
+  // carte/titre/niveau
+  if(identity){
+    const card = IDX.cards[identity.PlayerCardID];
+    const cardImg = img(card);
+    if(cardImg){ const pc=$('#playerCard'); pc.src=cardImg; pc.classList.remove('hidden'); }
+
+    $('#playerTitle').textContent = IDX.titles[identity.PlayerTitleID]?.displayName || '—';
+
+    const lvl = Number(identity.AccountLevel||0);
+    $('#accountLevel').textContent = lvl || '—';
+
+    // badge niveau (cache si 0)
+    const badge = $('#lvlBadge');
+    if (lvl > 0 && !identity.HideAccountLevel) {
+      badge.textContent = lvl;
+      badge.classList.remove('hidden');
+    } else {
+      badge.classList.add('hidden');
+    }
+
+    // border : choisit pref ou meilleur <= niveau ; cache si rien
+    const border = pickLevelBorder(identity);
+    const el = $('#levelBorder');
+    if (border && img(border)) { el.src = img(border); el.classList.remove('hidden'); }
+    else { el.classList.add('hidden'); }
+  }
+
+// Types connus (wheel = 3 sprays haut/gauche/droite, bottom = spray de fin/round)
+const WHEEL_TYPE  = 'd5f120f8-ff8c-4aac-92ea-f2b5acbe9475';
+const BOTTOM_TYPE = '03a572de-4234-31ed-d344-ababa488f981';
+
+// Slots DOM fixes
+const slots = {
+  top:   $('#sprTop'),
+  left:  $('#sprLeft'),
+  right: $('#sprRight'),
+  bottom:$('#sprBottom'),
+};
+
+// Helpers pour récupérer l’icône
+const sprayIcon = (assetId) => {
+  const lvl = IDX.sprayLvls[assetId];
+  const spr = lvl ? IDX.sprays[lvl.parentSprayUuid] : IDX.sprays[assetId];
+  // 1) spray normal
+  let icon = img(lvl) || img(spr) || '';
+  
+  // 2) sinon: FLEX
+  if (!icon) icon = flexIcon(assetId);
+  console.log(icon)
+  return icon || '';
+};
+
+
+// --- Placement ---
+const wheel = (expressions || []).filter(e => e.TypeID === WHEEL_TYPE);
+const bottom = (expressions || []).find(e => e.TypeID === BOTTOM_TYPE);
+
+// ordre Valorant: haut, gauche, droite
+const order = ['top', 'right', 'left'];
+order.forEach((pos, i) => {
+  const e = wheel[i];
+  if (!e) return;
+  const icon = sprayIcon(e.AssetID);
+  if (icon && slots[pos]) slots[pos].src = icon;
+});
+
+// bas
+if (bottom) {
+  const icon = sprayIcon(bottom.AssetID);
+  if (icon && slots.bottom) slots.bottom.src = icon;
+}
+
+}
+
+
+    async function boot(){
+      await indexAll();
+      const loadout = await api('/valorant/get_loadout');
+      renderCategories(loadout);
+      renderRight(loadout.Identity, loadout.ActiveExpressions);
+    }
+    window.addEventListener('load', boot);
+  </script>
+</body>
+</html>

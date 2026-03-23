@@ -1,0 +1,841 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>VALTrack — Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="manifest" href="/app/manifest.webmanifest">
+<meta name="theme-color" content="#0b0b0f">
+<!-- iOS PWA -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="apple-touch-icon" href="/app/icons/icon-192.png">
+<meta http-equiv="cache-control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="pragma" content="no-cache">
+<meta http-equiv="expires" content="0">
+  <style>
+    :root {
+      --hero-bg:url('');
+    }
+    body { font-family: Inter, ui-sans-serif, system-ui; 
+    overflow-x: hidden;}
+    .glass { backdrop-filter: blur(10px); background: rgba(255,255,255,0.06); }
+    .gradient-text { background: linear-gradient(90deg,#60a5fa,#a78bfa,#f472b6); -webkit-background-clip: text; background-clip: text; color: transparent; }
+    .shimmer { position: relative; overflow: hidden; }
+    .shimmer::after { content:""; position:absolute; inset:0; transform:translateX(-100%); background:linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent); animation: shimmer 1.3s infinite; }
+    @keyframes shimmer { 100% { transform: translateX(100%); } }
+
+    /* Hero background */
+    .hero {
+      position: relative; isolation:isolate;
+    }
+    .hero::before{
+      content:""; position:absolute; inset:-4rem 0rem 0 -2rem; z-index:-2;
+      background: radial-gradient(1200px 600px at 20% 0%, rgba(99,102,241,.25), transparent 70%),
+                  radial-gradient(800px 400px at 80% 10%, rgba(244,114,182,.18), transparent 60%);
+      filter: blur(20px);
+    }
+    .hero::after{
+      content:""; position:absolute; inset:-28rem 0rem -70vh -4rem; z-index:-3; opacity:.25;
+      background-image: var(--hero-bg);
+      background-position: right bottom; background-repeat:no-repeat; background-size: 55vw auto;
+      animation: float 10s ease-in-out infinite;
+    }
+    @media (max-width: 640px) {
+.hero::after{
+      content:""; position:absolute; inset:-28rem -1rem -20vh -4rem; z-index:-3; opacity:.25;
+      background-image: var(--hero-bg);
+      background-position: right bottom; background-repeat:no-repeat; background-size: 80vw auto;
+      animation: float 10s ease-in-out infinite;
+    }
+    }
+    @keyframes float { 0%,100%{ transform: translate3d(0,0,0) } 50%{ transform: translate3d(0,-10px,0) } }
+
+    /* Micro animations */
+    .animate-pop { animation: pop .35s both; }
+    @keyframes pop { from{ transform: scale(.98); opacity:0 } to{ transform: scale(1); opacity:1 } }
+    .reveal { opacity:0; transform: translateY(8px); transition: all .5s ease; }
+    .reveal.in { opacity:1; transform: none; }
+
+    /* Buttons */
+    .btn { @apply inline-flex items-center gap-2 px-4 py-2 rounded-xl font-medium transition active:scale-95; }
+    .btn-primary { @apply bg-indigo-500/90 hover:bg-indigo-500 text-white; }
+    .btn-ghost { @apply bg-white/10 hover:bg-white/15 text-white; }
+
+    /* Sticky mobile nav */
+    .tabbar { position: sticky; bottom: 0; z-index: 40; }
+
+    /* Overlay auth */
+    #overlay.hidden { display: none; }
+    #overlay { position: fixed; inset: 0; background: rgba(0,0,0,.8); display: flex; align-items: center; justify-content: center; z-index: 9999; }
+    #authFrame { width: 95vw; height: 95vh; border: 0; background: #fff; border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,.5); }
+    .skin_image{
+          height: 10vh !important;
+    }
+        .gradient-text { background: linear-gradient(90deg,#60a5fa,#a78bfa,#f472b6); -webkit-background-clip: text; background-clip: text; color: transparent; }
+
+  </style>
+</head>
+<body class="bg-zinc-950 text-zinc-100 min-h-screen">
+
+  <div id="accountError" class="fixed inset-0 z-[999999] flex flex-col items-center justify-center bg-zinc-950/90 backdrop-blur">
+  <!-- Spinner -->
+   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-10">
+  <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+</svg>
+
+  <!-- Texte -->
+  <p class="mt-4 text-sm text-zinc-300" id="errorText">Une erreur est survenue entre nous et Riot Games</p>
+    <p class="mt-4 text-sm text-zinc-300" id="errorText">Votre session Riot a peut-être expiré.</p>
+    <a href="#" id="linkRiotError" disabled class=" mt-4 glass rounded-2xl border border-white/10 px-4 py-3 text-center font-medium hover:bg-white/15 transition active:scale-95">Lier mon compte Riot</a>
+
+</div>
+
+
+<div id="globalLoader" class="fixed inset-0 z-[99999999] flex flex-col items-center justify-center bg-zinc-950/90 backdrop-blur">
+  <!-- Spinner -->
+  <div class="w-12 h-12 border-4 border-white/20 border-t-white rounded-full animate-spin"></div>
+  <!-- Texte -->
+  <p class="mt-4 text-sm text-zinc-300" id="loaderText">Chargement en cours…</p>
+</div>
+  <!-- Login overlays preserved -->
+  <div id="overlay" class="hidden  z-[99999999]"><iframe id="authFrame" src="about:blank"></iframe></div>
+  <div id="overlay_load" class="fixed inset-0 z-50 hidden">
+    <div class="absolute inset-0 backdrop-blur-md bg-black/50"></div>
+    <div class="relative h-full p-6">
+      <div id="riotRSOtext" class="w-full h-full rounded-3xl border border-white/10 bg-white/10 flex items-center justify-center text-center text-xl font-semibold">Chargement du client Riot</div>
+    </div>
+  </div>
+  <header id="notifyBanner" class="sticky top-0 z-30 backdrop-blur supports-[backdrop-filter]:bg-zinc-950/60 border-b border-white/10">
+    <div class="mx-auto max-w-7xl px-4 py-4 flex items-center justify-between">
+
+
+
+      <nav class="items-center gap-2">
+        <p>Voulez vous activer les notifications ?</p>
+        <button id="enablePushBtn" class="btn glass rounded-xl px-4 py-2">Activer les notifications</button>
+        <button id="refusePushBtn" class="btn glass rounded-xl px-4 py-2">Non</button>
+      </nav>
+
+
+    </div>
+  </header>
+
+
+
+
+
+  <!-- Header -->
+  <header class="sticky top-0 z-30 backdrop-blur supports-[backdrop-filter]:bg-zinc-950/60 border-b border-white/10">
+    <div class="mx-auto max-w-7xl px-4 py-4 flex items-center justify-between">
+      <a href="/" class="flex items-center gap-3 group">
+        <span class="inline-grid place-items-center h-9 w-9 rounded-xl bg-white/10 group-hover:bg-white/15 transition">
+          <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v4m0 12v4M2 12h4m12 0h4"/></svg>
+        </span>
+        <span class="font-extrabold tracking-tight">VALTrack</span>
+      </a>
+
+      <nav class="hidden md:flex items-center gap-2">
+        <a href="/static/matches.html" class="btn btn-ghost">Matchs</a>
+        <a href="/static/agents.html" class="btn btn-ghost">Agents</a>
+        <a href="/static/shop.html" class="btn btn-ghost">Boutique</a>
+      </nav>
+
+      <div class="relative" style="z-index:40">
+        <button id="userBtn" class="rounded-xl bg-white/10 hover:bg-white/15 px-3 py-2 text-sm flex items-center gap-2">
+          <span class="hidden sm:inline">Mon compte</span>
+          <svg class="h-4 w-4 opacity-70" viewBox="0 0 20 20" fill="currentColor"><path d="M5.25 7.5 10 12.25 14.75 7.5"/></svg>
+        </button>
+        <div id="menu" class="absolute right-0 mt-2 w-56 glass border border-white/5 rounded-xl p-1 hidden" style="    background: rgb(0 0 0 / 72%);
+    backdrop-filter: blur(34px);">
+          <button id="linkRiot" class="w-full text-left px-3 py-2 rounded-lg hover:bg-white/10 text-sm">Lier mon compte Riot</button>
+          <div class="my-1 h-px bg-white/10"></div>
+          <button id="logout" class="w-full text-left px-3 py-2 rounded-lg hover:bg-white/10 text-sm text-rose-300">Se déconnecter</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Hero -->
+  <section class="hero">
+    <div class="mx-auto max-w-7xl px-4 pt-10 pb-6">
+      <div class="flex flex-col gap-6">
+<div class="flex flex-col sm:flex-row items-start justify-between gap-4">
+  <div class="space-y-2">
+    <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight">
+      Salut <span id="GameName" class="gradient-text ">—</span>
+    </h1>
+    <p class="text-zinc-300">
+      Région <span id="regionTag" class="font-medium">EU</span>
+    </p>
+  </div>
+
+  <a href="/rank">
+    <div class="flex items-center gap-3 glass rounded-2xl p-3 border border-white/10 animate-pop">
+      <div class="h-12 w-12 rounded-lg bg-white/10 overflow-hidden grid place-items-center">
+        <img id="rankIcon" alt="Rang" class="h-10 w-10 object-contain hidden"/>
+        <div id="rankIconSkeleton" class="h-10 w-10 rounded shimmer"></div>
+      </div>
+      <div>
+        <p id="rankName" class="font-semibold">—</p>
+        <div class="flex items-center gap-2 text-sm text-zinc-400">
+          <span id="rr">—</span> RR
+          <span class="relative block w-28 h-1.5 rounded bg-white/10 overflow-hidden">
+            <span id="rrBar" class="absolute inset-y-0 left-0 bg-white/80" style="width:0%"></span>
+          </span>
+        </div>
+      </div>
+    </div>
+  </a>
+</div>
+
+
+<div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+<a href="/static/matches.html" class="glass rounded-2xl border border-white/10 px-4 py-3 text-center font-medium hover:bg-white/15 transition active:scale-95">Voir mes matchs</a>
+<a href="/static/matchInfo.html" id="btnLastMatch" class="glass rounded-2xl border border-white/10 px-4 py-3 text-center font-medium hover:bg-white/15 transition active:scale-95">Dernier match</a>
+<a href="/loadout" disabled class="glass rounded-2xl border border-white/10 px-4 py-3 text-center font-medium hover:bg-white/15 transition active:scale-95">Mon Loadout</a>
+<a href="/static/agent.html"  class="glass rounded-2xl border border-white/10 px-4 py-3 text-center font-medium hover:bg-white/15 transition active:scale-95">Mes agents</a>
+<a href="/static/owned.html"  class="glass rounded-2xl border border-white/10 px-4 py-3 text-center font-medium hover:bg-white/15 transition active:scale-95">Mes Skins</a>
+
+<!-- <a href="/static/shop.html" id="shopBtn" class="glass rounded-2xl border border-white/10 px-4 py-3 text-center font-medium hover:bg-white/15 transition active:scale-95">Boutique -->
+
+</a>
+</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Main content -->
+  <main class="mx-auto max-w-7xl px-4 pb-24 space-y-10">
+
+    <!-- Wallet -->
+    <section class="reveal">
+      <h2 class="text-xl font-semibold mb-3">Portefeuille</h2>
+      <div class="grid gap-4 sm:grid-cols-3">
+        <div class="glass rounded-2xl p-4 border border-white/10 text-center animate-pop">
+          <p class="text-sm text-zinc-400">Valorant Points</p>
+          <p id="VP" class="text-2xl font-extrabold tracking-tight">—</p>
+        </div>
+        <div class="glass rounded-2xl p-4 border border-white/10 text-center animate-pop">
+          <p class="text-sm text-zinc-400">Kingdom Credits</p>
+          <p id="KP" class="text-2xl font-extrabold tracking-tight">—</p>
+        </div>
+        <div class="glass rounded-2xl p-4 border border-white/10 text-center animate-pop">
+          <p class="text-sm text-zinc-400">Radianite Points</p>
+          <p id="RP" class="text-2xl font-extrabold tracking-tight">—</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Shop -->
+    <section class="reveal" id="shop">
+      <!-- Ajoute ce bouton -->
+
+
+      <div class="flex items-center justify-between mb-3" id="shopDiv">
+        <h2 class="text-xl font-semibold">Boutique du jour
+
+
+
+        </h2>
+
+        <p class="text-sm text-zinc-300">Expire dans <span id="shopCountdown">—:—:—</span>
+        
+        <button id="shareShopBtn"
+  class="glass rounded-2xl border border-white/10 px-3 py-2 font-medium hover:bg-white/15 active:scale-95">
+ <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+  <path stroke-linecap="round" stroke-linejoin="round" d="M7.217 10.907a2.25 2.25 0 1 0 0 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186 9.566-5.314m-9.566 7.5 9.566 5.314m0 0a2.25 2.25 0 1 0 3.935 2.186 2.25 2.25 0 0 0-3.935-2.186Zm0-12.814a2.25 2.25 0 1 0 3.933-2.185 2.25 2.25 0 0 0-3.933 2.185Z" />
+</svg>
+
+</button></p>
+      </div>
+      <div id="shop-grid" class="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+        <!-- Cards injected -->
+      </div>
+    </section>
+
+    <!-- Last Match -->
+    <section class="reveal" id="lastMatch">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-xl font-semibold">Dernier match</h2>
+        <a id="last_match_URL"  style="z-index: 100000;" href="#" class="text-sm underline underline-offset-4">Ouvrir la fiche</a>
+      </div>
+      <div class="glass rounded-2xl border border-white/10 p-4 grid sm:grid-cols-4 gap-4 items-center">
+        <p id="matchResult" class="text-lg font-bold col-span-1">—</p>
+        <p class="text-sm text-zinc-300 col-span-1">Score : <span id="matchScore">—</span></p>
+        <p class="text-sm text-zinc-300 col-span-1">K/D/A : <span id="kda">—</span></p>
+        <p class="text-sm text-zinc-300 col-span-1">Carte : <span id="mapName">—</span></p>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Bottom tab bar (mobile) -->
+  <div class="tabbar md:hidden">
+    <div class="mx-auto max-w-7xl px-4 pb-4">
+      <div class="glass rounded-2xl border border-white/10 p-2 grid grid-cols-4 text-center">
+        <a href="/" class="py-2 rounded-xl hover:bg-white/10 transition text-sm">Accueil</a>
+        <a href="/static/matches.html" class="py-2 rounded-xl hover:bg-white/10 transition text-sm">Matchs</a>
+        <a href="/static/agents.html" class="py-2 rounded-xl hover:bg-white/10 transition text-sm">Agents</a>
+        <a href="/static/shop.html" class="py-2 rounded-xl hover:bg-white/10 transition text-sm">Boutique</a>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    ///////DEV
+    STORE_DISABLE = true
+    // main.js (dev seulement)
+    navigator.serviceWorker.register('/app/sw.js?dev=' + Date.now(), { scope: '/app/' });
+
+
+
+    const $ = s => document.querySelector(s);
+    const menu = $("#menu"), userBtn = $("#userBtn");
+    userBtn.onclick = (e)=>{ e.stopPropagation(); menu.classList.toggle("hidden"); };
+    document.addEventListener("click", ()=> menu.classList.add("hidden"));
+
+    const showOverlay = () => document.getElementById('overlay_load').classList.remove('hidden');
+    const hideOverlay = () => document.getElementById('overlay_load').classList.add('hidden');
+
+    // ===== Déconnexion / Riot Link =====
+    $("#logout").onclick = async ()=>{ try { await api("/auth/logout", { method:"POST" }); } catch{} localStorage.removeItem("session_token"); location.href="/login"; };
+    $("#linkRiot").onclick = async ()=>{ showOverlay(); startLogin(); };
+    $("#linkRiotError").onclick = async ()=>{ showOverlay(); startLogin();hideaccountError(); };
+
+    function toRelay(url){ const u = new URL(url); return `/riot-auth/${u.port}/`; }
+    const overlay = document.getElementById("overlay");
+    const frame = document.getElementById("authFrame");
+    const riotRSOtext = document.getElementById("riotRSOtext")
+    async function startLogin() {
+      riotRSOtext.innerHTML = "<p>Chargement du serveur du connexion </p> "
+
+      const r = await fetch("/request_login", { method: "POST" });
+      if (!r.ok) { 
+        riotRSOtext.innerHTML = "<p>Aucun serveur de connexion disponible</p> <br><p>Nouvelle tentative dans 10 secondes...</p>"
+        await new Promise(res => setTimeout(res, 10000));
+        startLogin()
+        return
+       }
+      const data = await r.json();
+      riotRSOtext.innerHTML = "<p>Chargement du client Riot</p> "
+
+      await new Promise(res => setTimeout(res, 3000));
+      frame.src = toRelay(data.browser_url);
+      hideOverlay();
+      overlay.classList.remove("hidden");
+      const sid = data.session_id; const start = Date.now(); const TIMEOUT_MS = 120000;
+      while (Date.now() - start < TIMEOUT_MS) {
+        await new Promise(res => setTimeout(res, 1500));
+        const w = await fetch(`/wait_token?session_id=${encodeURIComponent(sid)}&timeout=1`);
+        if (!w.ok) continue; const ans = await w.json();
+        if (ans.access_token) {
+          overlay.classList.add("hidden"); frame.src = "about:blank";
+          await fetch("/riot/link/complete", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "Authorization": "Session " + localStorage.getItem("session_token") },
+            body: JSON.stringify({ access_token: ans.access_token, cookies: ans.cookies || {} })
+          });
+          window.location.href = "/static/app.html"; return;
+        }
+      }
+      overlay.classList.add("hidden"); frame.src = "about:blank";
+    }
+
+    // ===== Helpers cookies / session =====
+    function setCookie(name, value, days=1) { const expires = new Date(Date.now()+days*864e5).toUTCString(); document.cookie = `${name}=${encodeURIComponent(value)}; Expires=${expires}; Path=/; SameSite=Lax`; }
+    function getCookie(name) { return document.cookie.split('; ').reduce((acc, v) => { const [k, val] = v.split('='); return k === name ? decodeURIComponent(val) : acc; }, null); }
+    function logout(){ setCookie('riot_token','',-1); location.href = '/login'; }
+    function getSessionToken(){ return localStorage.getItem('session_token') || getCookie('session_token'); }
+
+    async function api(path, opt = {}){
+      const t = getSessionToken(); if (!t) {
+  // Redirige directement vers login
+  window.location.href = "/login";
+  throw new Error("No session token"); // facultatif pour stopper la fonction
+}
+      const r = await fetch(path, { ...opt, headers: { ...(opt.headers||{}), Authorization: `Session ${t}` }, credentials: 'include' });
+      if (!r.ok) throw new Error(`${path}: ${r.status}`);
+      const ct = r.headers.get('content-type') || ''; return ct.includes('application/json') ? r.json() : r.text();
+    }
+
+    const fmt = new Intl.NumberFormat('fr-FR');
+
+    // ===== UI helpers =====
+    function nextUtcMidnight(){ const now = new Date(); const next = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()+1, 0,0,0)); return next.getTime(); }
+    let countdownTimer = null;
+    function startCountdown(expiresAt){ if(countdownTimer) clearInterval(countdownTimer); function tick(){ const ms = new Date(expiresAt).getTime() - Date.now(); if(ms<=0){ $('#shopCountdown').textContent = '00:00:00'; clearInterval(countdownTimer); return; } const h = String(Math.floor(ms/3_600_000)).padStart(2,'0'); const m = String(Math.floor(ms%3_600_000/60_000)).padStart(2,'0'); const s = String(Math.floor(ms%60_000/1000)).padStart(2,'0'); $('#shopCountdown').textContent = `${h}:${m}:${s}`; } tick(); countdownTimer = setInterval(tick, 1000); }
+
+    // Scroll reveal
+    const io = new IntersectionObserver((entries)=>{ for (const e of entries){ if(e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target); } }},{ threshold:.12 });
+    document.querySelectorAll('.reveal').forEach(el=>io.observe(el));
+
+    // ===== Data fetchers =====
+    let SubjectID = "";
+    async function getIdentity(){ try{ const data = await api('/valorant/get_user_info'); SubjectID = data["Subject"]; $('#GameName').textContent = `${data.GameName}#${data.TagLine}`; $('#regionTag').textContent = data.region || 'EU'; return true }catch(e){ console.warn('get_user_info', e); return false} }
+
+    async function getWallet(){ try{ const data = await api('/valorant/wallet'); $('#VP').innerHTML = fmt.format(data.valorant_point||0) + " <img class='inline h-5 align-[-2px]' src='/static/Valorant_Points.webp'>"; $('#KP').innerHTML = fmt.format(data.kindom_point||0) + " <img class='inline h-5 align-[-2px]' src='/static/Kingdom_Credits.webp'>"; $('#RP').innerHTML = fmt.format(data.radianite_point||0) + " <img class='inline h-5 align-[-2px]' src='/static/Radianite_Points.webp'>"; }catch(e){ console.warn('wallet', e); } }
+
+    function findFirstImage(obj){ if (!obj || typeof obj !== 'object') return null; const keys = ['displayIcon','fullRender','displayIconLarge','icon','swatch','thumbnail','smallIcon']; for (const k of keys) { const v = obj[k]; if (typeof v === 'string' && v.startsWith('http')) return v; } for (const v of Object.values(obj)) { const r = findFirstImage(v); if (r) return r; } return null; }
+
+    function change_image(id, img){ 
+      const card = document.querySelector(`.skin_image[data-offer="${id}"]`); if(card) card.src = img; }
+let __shopForShare = [];
+
+    async function getStore(){
+      if(STORE_DISABLE){
+        document.getElementById("shopDiv").style.display = "none"
+        return
+      }
+      try{
+        const data = await api('/valorant/featured_store');
+        const store = typeof data === 'string' ? JSON.parse(data) : data;
+        const grid = document.getElementById('shop-grid'); grid.innerHTML = '';
+        const cards = Object.entries(store).slice(0,4).map(([offerId, item])=>{
+          const s = (item.name && item.name.data) || {};
+          const title = s.displayName || 'Skin';
+          const cost = item.cost ?? Number(s.know_cost || 0);
+          const ContentTier = s.contentTierUuid;
+          const firstImg = s.displayIcon || findFirstImage(s) || findFirstImage(item) || '';
+          const variations = Object.values(s.chromas || {});
+          let varDots = '';
+          if (variations.length > 1) {
+            varDots = variations.slice(0,4).map(v=>{
+              const thumb = v.swatch || findFirstImage(v) || firstImg;
+              const img   = v.displayIcon || findFirstImage(v) || firstImg;
+              return `<button class='h-7 w-7 rounded border border-white/10 hover:border-white/20 transition'
+                        title='${v.displayName||''}' style="background:url('${thumb}') center/cover"
+                        onclick="change_image('${offerId}','${img}')"></button>`; }).join('');
+          }
+          return `
+          <article class="skin-card group glass rounded-2xl border border-white/10 p-3 text-center transition hover:translate-y-[-2px] hover:bg-white/[.08]">
+            <div class="aspect-[4/3] rounded-xl bg-white/5 overflow-hidden grid place-items-center">
+              <img class="absolute top-3 right-3 h-8 opacity-90" src="https://media.valorant-api.com/contenttiers/${ContentTier}/displayicon.png">
+              ${firstImg ? `<img src="${firstImg}" data-offer="${offerId}" alt="${title}" class="h-full w-full object-contain skin_image transition"/>`
+                        : `<div class='h-full w-full shimmer'></div>`}
+            </div>
+            <div class="block md:hidden">
+            <p class="mt-2 font-medium">${title}</p>
+            <p class="text-sm text-zinc-400">${fmt.format(cost)} VP</p>
+            <a href="/weapon?uuid=${offerId}" class="mt-3 inline-block btn btn-primary">Détails</a>
+            </div>
+            <div class="hidden md:block">
+            <p class="mt-2 font-medium">${title}</p>
+            <p class="text-sm text-zinc-400">${fmt.format(cost)} VP</p>
+            <div class="mt-2 flex justify-center gap-2">${varDots}</div>
+            <a href="/weapon?uuid=${offerId}" class="mt-3 inline-block btn btn-primary">Détails</a>
+            </div>
+          </article>`; }).join('');
+        grid.innerHTML = cards;
+
+        // Ajoute en haut du script :
+
+// Dans getStore(), juste après avoir parsé `store` :
+__shopForShare = Object.entries(store).map(([offerId, item])=>{
+  const s = (item.name && item.name.data) || {};
+  return {
+    id: offerId,
+    title: s.displayName || 'Skin',
+    tier: s.contentTierUuid || '',
+    price: item.cost ?? Number(s.know_cost || 0),
+    main: s.displayIcon || findFirstImage(s) || findFirstImage(item) || '',
+    chromas: Object.values(s.chromas || {}).map(c=>({
+      name: c.displayName || '',
+      swatch: c.swatch || findFirstImage(c) || '',
+      icon: c.displayIcon || findFirstImage(c) || ''
+    }))
+  };
+});
+
+
+
+
+      }catch(e){ console.warn('store', e); }
+    }
+
+
+
+function shareShopLink(items = __shopForShare){
+  // Récupérer les 4 UUID
+  const uuids = items.map(it => it.id).slice(0,4);
+
+  // Encoder en JSON -> base64 (url-safe)
+  const json = JSON.stringify(uuids);
+  let b64 = btoa(json)
+    .replace(/\+/g, '-')   // rendre url-safe
+    .replace(/\//g, '_')
+    .replace(/=+$/, '');
+
+  // Construire l’URL
+  const url = `${location.origin}/shareshop?d=${b64}`;
+  return url;
+}
+
+
+async function generateShopShareImage(items = __shopForShare){
+  // Canvas params
+  const W = 1600, COLS = 2, PADDING = 40, GAP = 28;
+  const cardW = (W - PADDING*2 - GAP*(COLS-1)) / COLS;
+  const cardH = 320;
+  const rows = Math.ceil(items.length / COLS);
+  const H = PADDING*2 + 120 /*header*/ + rows*cardH + (rows-1)*GAP;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+
+  // Helpers
+  const roundRect = (x,y,w,h,r=16)=>{ctx.beginPath();
+    ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r);
+    ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r);
+    ctx.arcTo(x,y,x+w,y,r); ctx.closePath();
+  };
+  const loadImg = (src)=>new Promise(res=>{
+    const img = new Image(); img.crossOrigin='anonymous';
+    img.onload=()=>res(img); img.onerror=()=>res(null); img.src=src;
+  });
+
+  // Background
+  const g = ctx.createLinearGradient(0,0,W,H);
+  g.addColorStop(0,'#0b0b12'); g.addColorStop(1,'#1a1b2b');
+  ctx.fillStyle = g; ctx.fillRect(0,0,W,H);
+
+  // Title
+  gameName = document.getElementById("GameName").innerText
+  ctx.fillStyle = '#fff'; ctx.font = '700 42px Inter, system-ui, sans-serif';
+  ctx.fillText('Boutique de '+gameName, PADDING, PADDING+46);
+  ctx.fillStyle = '#cbd5e1'; ctx.font = '400 20px Inter, system-ui, sans-serif';
+  const expiresTxt = document.getElementById('shopCountdown')?.textContent || '';
+  ctx.fillText(`Expire dans ${expiresTxt}`, PADDING, PADDING+78);
+
+  // Cards
+  let i = 0;
+  for (const it of items){
+    const r = Math.floor(i / COLS), c = i % COLS;
+    const x = PADDING + c*(cardW+GAP);
+    const y = PADDING + 120 + r*(cardH+GAP);
+
+    // Card base
+    ctx.globalAlpha = 0.9;
+    roundRect(x,y,cardW,cardH,18); ctx.fillStyle = 'rgba(255,255,255,0.06)'; ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.strokeStyle = 'rgba(255,255,255,0.12)'; ctx.lineWidth = 1; ctx.stroke();
+
+    // Title + price
+    ctx.fillStyle = '#fff'; ctx.font = '600 20px Inter, system-ui, sans-serif';
+    ctx.fillText(it.title, x+18, y+36);
+    ctx.fillStyle = '#cbd5e1'; ctx.font = '400 16px Inter, system-ui, sans-serif';
+    ctx.fillText(`${(it.price||0).toLocaleString('fr-FR')} VP`, x+18, y+62);
+
+    // Tier icon
+    if (it.tier){
+      const tierImg = await loadImg(`https://media.valorant-api.com/contenttiers/${it.tier}/displayicon.png`);
+      if(tierImg) ctx.drawImage(tierImg, x+cardW-18-40, y+20, 40, 40);
+    }
+
+    // Main image
+    if (it.main){
+      const img = await loadImg(it.main);
+      if (img){
+        const boxX = x+18, boxY = y+78, boxW = cardW-36, boxH = 170;
+        // contain
+        const ratio = Math.min(boxW/img.width, boxH/img.height);
+        const w = Math.max(1, Math.floor(img.width*ratio));
+        const h = Math.max(1, Math.floor(img.height*ratio));
+        const ix = boxX + (boxW-w)/2, iy = boxY + (boxH-h)/2;
+        ctx.drawImage(img, ix, iy, w, h);
+      }
+    }
+
+    // Chromas (swatches)
+const sw = 30, sp = 8;
+let cx = x+18, cy = y+cardH-18-sw;
+
+const chromas = (it.chromas||[]).filter(c => {
+  // ne garder que ceux qui ont un nom et qui ne sont pas "Base" / vide
+  if (!c || !c.name) return false;
+  const n = c.name.trim().toLowerCase();
+  return n !== '' && n !== 'base' && n !== '1' && n !== '0';
+}).slice(0,8);
+if(chromas.length < 1) return false;
+for (const croma of chromas){
+  const swImg = await loadImg(croma.swatch || croma.icon || it.main);
+  roundRect(cx, cy, sw, sw, 6);
+  ctx.fillStyle = 'rgba(255,255,255,0.1)'; ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,0.12)'; ctx.stroke();
+  if (swImg){
+    // crop carré
+    const s = Math.min(swImg.width, swImg.height);
+    const sx = (swImg.width - s)/2, sy = (swImg.height - s)/2;
+    ctx.save(); roundRect(cx+2, cy+2, sw-4, sw-4, 4); ctx.clip();
+    ctx.drawImage(swImg, sx, sy, s, s, cx+2, cy+2, sw-4, sw-4);
+    ctx.restore();
+  }
+  cx += sw + sp;
+}
+
+
+    i++;
+  }
+
+  // Export
+  const blob = await new Promise(res=>canvas.toBlob(res,'image/png',1));
+  return blob; 
+  // const url = URL.createObjectURL(blob);
+  // const a = document.createElement('a');
+  // a.href = url; a.download = `boutique_valtrack_${Date.now()}.png`; a.click();
+  // URL.revokeObjectURL(url);
+
+  // Optionnel: tenter copie presse-papier (si supporté)
+  if (navigator.clipboard && window.ClipboardItem) {
+    try { await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]); }
+    catch(_) {}
+  }
+}
+
+// Clic bouton
+document.getElementById('shareShopBtn')?.addEventListener('click', async ()=>{
+  try{
+    if(!__shopForShare.length) await getStore();
+    const blob = await generateShopShareImage();
+    const  url = shareShopLink();
+    const file = new File([blob], `boutique_valtrack_${Date.now()}.png`, { type: 'image/png' });
+
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({
+        title: 'Boutique VALTrack',
+        text: 'Voici ma boutique du jour sur VALTrack.',
+        files: [file],
+        url
+      });
+    } else {
+      // Fallback: download + (optionnel) copie presse-papier
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = file.name; a.click();
+      URL.revokeObjectURL(url);
+
+      if (navigator.clipboard && window.ClipboardItem) {
+        try { await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]); } catch {}
+      }
+    }
+  } catch(e){ console.warn('share shop', e); }
+});
+    async function fetchMapsIndex() {
+      const res = await fetch('https://valorant-api.com/v1/maps?language=fr-FR');
+      if (!res.ok) throw new Error(`Maps fetch failed: ${res.status}`);
+      const { data = [] } = await res.json();
+      const normalize = m => ({ uuid: m.uuid, name: m.displayName, url: m.mapUrl, splash: m.splash||null, listIcon: m.listViewIcon||null, stylized: m.stylizedIcon||null, displayIcon: m.displayIcon||null, coordinates: m.coordinates||null, callouts: Array.isArray(m.callouts)? m.callouts.map(c=>({regionName:c.regionName, superRegionName:c.superRegionName, location:c.location||null})) : [] });
+      const byUrl  = {}; const byUuid = {}; for (const m of data) { const info = normalize(m); if (info.url) byUrl[info.url] = info; if (info.uuid) byUuid[info.uuid] = info; }
+      return { byUrl, byUuid };
+    }
+
+    function setHeroBackground(agentUuid){
+      if(!agentUuid) return;
+      const url = `url('https://media.valorant-api.com/agents/${agentUuid}/fullportrait.png')`;
+      document.documentElement.style.setProperty('--hero-bg', url);
+    }
+
+    async function getLastMatch(){
+      try{
+        const m = await api('/valorant/get_lastmatch');
+        const startGame = m.matchInfo.gameStartMillis + m.matchInfo.gameLengthMillis
+        const { byUrl } = await fetchMapsIndex();
+        const currentMap = byUrl[m["matchInfo"]["mapId"]] || {};
+        const players = m["players"] || [];
+        const me = players.find(p=> (p.subject||p.Subject) === SubjectID ) || players[0] || {};
+        const myTeamId = me.teamId;
+        const teams = m["teams"] || [];
+        const teamA = teams[0]||{}; const teamB = teams[1]||{};
+        const iWon = (teamA.teamId===myTeamId ? teamA.won : teamB.won) || false;
+        const kills = me.stats?.kills ?? '-'; const deaths = me.stats?.deaths ?? '-'; const assists = me.stats?.assists ?? '-';
+        $('#matchResult').textContent = iWon ? 'Victoire' : 'Défaite';
+        $('#matchScore').innerHTML = `<span>${teamA.numPoints??'-'}</span> - <span>${teamB.numPoints??'-'}</span>`;
+        $('#kda').textContent = `${kills} / ${deaths} / ${assists}`;
+        $('#mapName').textContent = currentMap.name || '—';
+        document.getElementById("last_match_URL").href = `https://valorant.lamas.one/static/matchInfo.html?id=${m.matchInfo.matchId}`;
+        document.getElementById("btnLastMatch").href = `https://valorant.lamas.one/static/matchInfo.html?id=${m.matchInfo.matchId}`;
+        console.log(startGame)
+        const date = new Date(startGame);              // conversion en Date
+          const now = Date.now();
+          const oneHour = 60 * 60 * 1000;
+
+          if (startGame > now - oneHour) {
+                  document.getElementById("btnLastMatch").innerHTML = `Dernier Match <span class="absolute -top-2 -right-2 bg-red-600 text-xs font-bold px-2 py-0.5 rounded-full">
+    Nouveau
+  </span>`
+          } else {
+          }
+  //          <span class="absolute -top-2 -right-2 bg-yellow-600 text-xs font-bold px-2 py-0.5 rounded-full">
+  //   BETA
+  // </span>
+        
+        // Hero agent background
+        const agentUuid = me.characterId || me.CharacterID; setHeroBackground(agentUuid);
+      }catch(e){ console.warn('last_match', e); }
+    }
+
+    function showRankIcon(url){
+      const img = document.getElementById('rankIcon'); const sk  = document.getElementById('rankIconSkeleton');
+      sk.classList.remove('hidden'); img.classList.add('hidden');
+      img.onload = () => { sk.classList.add('hidden'); img.classList.remove('hidden'); };
+      img.onerror = () => { sk.classList.add('hidden'); };
+      img.src = url; if (img.complete && img.naturalWidth > 0) { sk.classList.add('hidden'); img.classList.remove('hidden'); }
+    }
+
+    async function getCurrentRank(){ try{ const data = await api('/valorant/get_current_rank'); showRankIcon(data.info.largeIcon); document.getElementById('rankName').textContent = data.info.tierName; document.getElementById('rr').textContent = data.rr; }catch(e){ console.warn('rank', e); } }
+
+    async function getRank(){
+      try{ const r = await api('/valorant/competitive_rank'); document.getElementById('rankName').textContent = r.rankName || 'Non classé'; document.getElementById('rr').textContent = r.rr ?? 0; document.getElementById('rrBar').style.width = `${Math.max(0, Math.min(100, r.progressPct ?? r.rr ?? 0))}%`; if(r.icon){ const img = document.getElementById('rankIcon'); img.src = r.icon; img.classList.remove('hidden'); document.getElementById('rankIconSkeleton').classList.add('hidden'); } }catch(e){ console.warn('rank', e); }
+    }
+
+    function startShopCountdown(){ startCountdown(nextUtcMidnight()); }
+function showGlobalLoader(){
+  document.getElementById('globalLoader').classList.remove('hidden');
+}
+function hideGlobalLoader(){
+  document.getElementById('globalLoader').classList.add('hidden');
+}
+function showaccountError(){
+  document.getElementById('accountError').classList.remove('hidden');
+}
+function hideaccountError(){
+  document.getElementById('accountError').classList.add('hidden');
+}
+const loaderMessages = [
+  "Connexion à l'API Riot…",
+  "Récupération des données…",
+  "Mise en place de la boutique…",
+    "Nous demandons à Riot",
+    "Ils ont dit non.. mais nous essayons encore",
+
+  "Presque prêt…"
+];
+let loaderIndex = 0, loaderTimer;
+
+function startLoaderMessages(){
+  const textEl = document.getElementById("loaderText");
+  if (!textEl) return;
+  loaderIndex = 0;
+  textEl.textContent = loaderMessages[0];
+  loaderTimer = setInterval(()=>{
+    loaderIndex = (loaderIndex + 1) % loaderMessages.length;
+    textEl.textContent = loaderMessages[loaderIndex];
+  }, 2000); // change toutes les 2s
+}
+
+function stopLoaderMessages(){
+  clearInterval(loaderTimer);
+}
+
+
+      startLoaderMessages();
+
+    async function boot(){
+      cN = getCookie("notify")
+      if(cN){
+        document.getElementById("notifyBanner").hidden = "true"
+      }
+      hideaccountError()
+      t=  await getIdentity();
+      if(!t){
+        stopLoaderMessages();
+      hideGlobalLoader()
+showaccountError()
+        
+        return
+      }
+      await Promise.all([getWallet(), getCurrentRank(), getStore(), getLastMatch(), getRank()]);
+      startShopCountdown();
+      hideGlobalLoader()
+       stopLoaderMessages();
+
+       document.getElementById("shopBtn").innerHTML = `Boutique <span class="absolute -top-2 -right-2 bg-yellow-600 text-xs font-bold px-2 py-0.5 rounded-full">
+    BETA
+  </span>`
+    }
+
+    window.addEventListener('load', boot);
+
+
+  </script>
+
+
+<script>
+const VAPID_PUBLIC = "BMZlxNqE7QOBbab15Xkg-nCDoxou_8naaatSyF3quAlgMaRjMJDLSlJ36SPIxWv3eIKAXnvTl7HNmiEI0oqMmqM"; // base64url
+
+function b64urlToUint8(b64){
+  const p='='.repeat((4-b64.length%4)%4);
+  const str=(b64+p).replace(/-/g,'+').replace(/_/g,'/');
+  const raw=atob(str);
+  return Uint8Array.from([...raw].map(c=>c.charCodeAt(0)));
+}
+
+
+document.getElementById('refusePushBtn').onclick = async () => {
+  setCookie("notify",0)
+  document.getElementById("notifyBanner").hidden = "true"
+
+}
+
+document.getElementById('enablePushBtn').onclick = async () => {
+  try{
+    if(!('serviceWorker' in navigator) || !('PushManager' in window)){
+      alert("Push non supporté"); return;
+    }
+    const perm = await Notification.requestPermission();
+    if(perm !== 'granted'){ alert("Permission refusée"); return; }
+
+    const reg = await navigator.serviceWorker.register('/sw.js', {scope: '/'}); // ajuste le scope si besoin
+    await navigator.serviceWorker.ready; // s'assurer qu'il est actif
+
+    const key = b64urlToUint8(VAPID_PUBLIC);
+    if(key.length !== 65){ console.error("VAPID key invalide (len=",key.length,")"); return; }
+
+    const existing = await reg.pushManager.getSubscription();
+    const sub = existing || await reg.pushManager.subscribe({ userVisibleOnly:true, applicationServerKey: key });
+
+    const r = await fetch('/push/subscribe', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(sub)
+    });
+    if(!r.ok){ console.error('subscribe POST failed', r.status, await r.text()); alert("Erreur subscribe"); return; }
+
+    console.log('OK subscribed', sub.endpoint);
+    alert('Notifications activées ✅');
+  }catch(e){
+    console.error('enablePush error', e);
+    alert('Erreur: ' + (e && e.message || e));
+  }
+};
+</script>
+
+<script>
+// Enregistrer le SW (scope /app/)
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("/app/sw.js", {scope:"/app/"}).catch(console.error);
+}
+
+// Bouton “Installer” (PWA install prompt)
+let deferredInstall;
+window.addEventListener("beforeinstallprompt", (e)=>{ e.preventDefault(); deferredInstall=e; });
+async function promptInstall(){ if(deferredInstall){ deferredInstall.prompt(); deferredInstall=null; } }
+
+// Notifications Web Push (OK Chrome/Firefox, OK Safari iOS/macOS si PWA installée)
+async function enablePush(vapidPublic){
+  if (Notification.permission!=="granted") {
+    const p = await Notification.requestPermission();
+    if (p!=="granted") return;
+  }
+  const reg = await navigator.serviceWorker.getRegistration("/app/");
+  const key = b64urlToUint8(vapidPublic);
+  const sub = await (await reg).pushManager.subscribe({userVisibleOnly:true, applicationServerKey:key});
+  await fetch("/push/subscribe",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(sub)});
+}
+function b64urlToUint8(b64){const p='='.repeat((4-b64.length%4)%4);const s=(b64+p).replace(/-/g,'+').replace(/_/g,'/');return Uint8Array.from(atob(s),c=>c.charCodeAt(0))}
+</script>
+
+
+</body>
+</html>

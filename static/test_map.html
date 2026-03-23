@@ -1,0 +1,344 @@
+<!doctype html><meta charset="utf-8">
+<title>Ascent – calibration responsive & kills (HTML tags)</title>
+<style>
+  body{margin:0;
+padding:0}
+  .map-container{
+    width:100vh
+    
+    ;aspect-ratio:1/1;
+    border:1px solid #ccc;
+    position:relative}
+  #wrap{position:absolute;inset:0}
+  #cv{width:100%;height:100%;display:block;background:#111}
+  .tag{position:absolute;transform:translate(-50%,-100%);padding:2px 6px;background:#fff;border-radius:6px;box-shadow:0 1px 4px rgba(0,0,0,.25);white-space:nowrap}
+  .pin{position:absolute;width:10px;height:10px;border-radius:50%;border:2px solid #fff;background:#00a;transform:translate(-50%,-50%);cursor:grab}
+  .pin:active{cursor:grabbing}
+  .pin div{position:absolute;top:-14px;left:12px;color:white;font-size:12px;text-shadow:0 0 3px black}
+  .kill{position:absolute;width:14px;height:14px;border-radius:50%;background:red;border:2px solid white;transform:translate(-50%,-50%)}
+  small{opacity:.7}
+  #controls{
+    display:none;
+    position: absolute;
+    background-color:#ffffffa6;
+    z-index: 10000;
+    bottom:0;
+    right:0;
+  }
+
+  .kill-victim{background:red;border:2px solid white}
+.kill-killer{background:lime;border:2px solid black}
+
+.team { box-shadow: 0 0 6px 2px blue; }
+
+</style>
+<input id="killSlider" type="range" min="0" max="0" value="0" step="1">
+<span id="killIndex">0</span>/<span id="killTotal">0</span>
+<span id="roundIndex">0</span>
+<div class="map-container" >
+  <div id="wrap">
+    <canvas id="cv"></canvas>
+  </div>
+</div>
+<div id="controls">
+  <p><b>1)</b> Charge l’image clean → <input id="imgFile" type="file" accept="image/*"></p>
+  <p><b>2)</b> Place les <b>ancres</b> (drag) puis clique <button id="solve">Calibrer</button></p>
+  <small>Min 3 ancres; 4–6 = mieux.</small>
+  <div id="anchors"></div>
+  <p>
+    <button id="clear">Repartir de zéro</button>
+    <button id="saveCalib">💾 Sauver calibration</button>
+    <button id="loadCalib">📂 Charger calibration</button>
+  </p>
+  <p><small>Erreur RMS: <span id="rms">–</span> px</small></p>
+</div>
+
+<div class="map-container" >
+  <div id="wrap">
+    <canvas id="cv"></canvas>
+  </div>
+</div>
+
+<script>
+/* ---- Données ---- */
+let callouts=[
+];
+const anchorDefs = {
+  "7eaecc1b-4337-bbf6-6ab9-04b8f06b3319": [
+    { label: "Attacker Spawn", x: 60, y: 50 },
+    { label: "Defender Spawn", x: 1995.2354, y: -9744.923 },
+    { label: "A Site", x: 6153.585, y: -6626.2114 },
+    { label: "B Site", x: -2344.065, y: -7548.511 },
+    { label: "A Window", x: 4023.0244, y: -8180.692 },
+    { label: "B Boat House", x: -4484.774, y: -7763.3584 }
+  ]
+};
+
+
+
+// exemple kills
+let kills = ""
+
+const Calibration = {
+    "7eaecc1b-4337-bbf6-6ab9-04b8f06b3319":{
+    "matrix": [
+        -0.000047690587887570194,
+        0.06303322790343038,
+        737.3072389270351,
+        -0.06454666483430406,
+        -0.0008927588466703384,
+        528.8669958877182
+    ],
+    "w": 911,
+    "h": 911
+    }
+}
+/* ---- DOM ---- */
+const $=id=>document.getElementById(id);
+const cv=$("cv"), ctx=cv.getContext("2d"), wrap=$("wrap");
+let bg=new Image();
+let T=null;        
+let calW=null, calH=null; 
+const pins=[];
+
+
+
+function getSession(){ return localStorage.getItem('session_token') || (document.cookie.match(/(?:^| )session_token=([^;]+)/)?.[1] ?? ""); }
+async function api(path){
+  const r = await fetch(path, { headers: { Authorization: 'Session '+getSession() } });
+  if(!r.ok) throw new Error(`HTTP ${r.status}`); return r.json();
+}
+
+
+let currentRound = 0;
+
+
+
+
+/* ---- Image ---- */
+async function fetchMapsIndex(){
+  const r = await fetch('https://valorant-api.com/v1/maps?language=fr-FR');
+  const { data=[] } = await r.json();
+  const byUrl = {}, byUuid = {};
+  for(const m of data){
+   // fetchMapsIndex()
+const info = {
+  uuid: m.uuid,
+  name: m.displayName,
+  url: (m.mapUrl||'').toLowerCase(),
+  displayIcon: m.displayIcon || null,
+    splash: m.splash || null,
+
+  callouts: m.callouts,
+  xMultiplier: Number(m.xMultiplier ?? NaN),
+  yMultiplier: Number(m.yMultiplier ?? NaN),
+  xScalarToAdd: Number(m.xScalarToAdd ?? NaN),
+  yScalarToAdd: Number(m.yScalarToAdd ?? NaN),
+};
+
+    if(info.url)  byUrl[info.url]=info;
+    if(info.uuid) byUuid[info.uuid]=info;
+  }
+  return { byUrl, byUuid };
+}
+function getMyTeam(roundPlayers){
+  if (!myID) return null;
+  const me = roundPlayers.find(p => p.subject === myID);
+  return me ? me.team : null;  // "Blue" ou "Red"
+}
+
+
+
+let myID = null;
+
+const  mapID = "7eaecc1b-4337-bbf6-6ab9-04b8f06b3319"
+const MATCH_ID = "a1137364-7dde-4146-b5e4-cf212fed774d"
+async function init(){
+    mapInfo = await fetchMapsIndex()
+    console.log(mapInfo.byUuid[mapID])
+    callouts = mapInfo.byUuid[mapID].callouts
+    myID = await api("/valorant/get_user_info")
+    myID = myID["Subject"]
+    testuserinfo = await api("/valorant/get_user_profile/"+myID)
+
+    console.log(testuserinfo)
+    bg.src = `https://media.valorant-api.com/maps/${mapID}/displayicon.png`
+    const match = await api(`/valorant/match/${encodeURIComponent(MATCH_ID)}`);
+    console.log(match)
+    kills = match.kills
+
+const slider = $("killSlider");
+$("killTotal").textContent = kills.length;
+slider.max = kills.length - 1;
+slider.oninput = () => {
+  $("killIndex").textContent = slider.value;
+  draw();
+};
+
+     syncCanvasToCSS(); 
+    // initAnchors();
+    const s= Calibration[mapID]
+    const data=s;
+    const K=data.matrix; const w0=data.w||wrap.clientWidth, h0=data.h||wrap.clientHeight;
+    const sx=wrap.clientWidth / w0, sy=wrap.clientHeight / h0;
+    // on adapte la matrice à la nouvelle taille CSS (post-scale)
+    T=[ K[0]*sx, K[1]*sx, K[2]*sx,  K[3]*sy, K[4]*sy, K[5]*sy ];
+    calW=wrap.clientWidth; calH=wrap.clientHeight;
+    draw();
+
+
+}
+
+
+
+/* ---- Sync canvas à la taille affichée ---- */
+function syncCanvasToCSS(){
+  cv.width = wrap.clientWidth;
+  cv.height = wrap.clientHeight;
+}
+
+/* ---- Ancres ---- */
+function initAnchors(){
+  const box=$("anchors"); box.innerHTML="";
+  anchorDefs[mapID].forEach((a,i)=>{
+    const row=document.createElement("div");
+    row.innerHTML=`<label><input type="checkbox" checked data-i="${i}"> ${a.label}</label>`;
+    box.appendChild(row);
+
+    const p=document.createElement("div");
+    p.className="pin"; p.style.left="50%"; p.style.top="50%"; p.dataset.i=i;
+    const lbl=document.createElement("div"); lbl.textContent=a.label; p.appendChild(lbl);
+    wrap.appendChild(p); enableDrag(p); pins.push(p);
+  });
+}
+function enableDrag(el){
+  let dragging=false;
+  el.addEventListener("pointerdown",e=>{dragging=true;el.setPointerCapture(e.pointerId);});
+  el.addEventListener("pointermove",e=>{
+    if(!dragging) return;
+    const r=wrap.getBoundingClientRect();
+    const x=e.clientX-r.left, y=e.clientY-r.top;   // px CSS
+    // contraindre aux bords
+    el.style.left=Math.max(0,Math.min(r.width ,x))+"px";
+    el.style.top =Math.max(0,Math.min(r.height,y))+"px";
+  });
+  el.addEventListener("pointerup",()=>dragging=false);
+}
+
+
+/* ---- Calibration ---- */
+$("clear").onclick=()=>{ T=null; calW=null; calH=null; draw(); $("rms").textContent="–"; };
+
+$("solve").onclick=()=>{
+  const P=[];
+  pins.forEach((p,i)=>{
+    const cb=document.querySelector('input[data-i="'+i+'"]');
+    if(cb && cb.checked){
+      const px=parseFloat(p.style.left); // px CSS
+      const py=parseFloat(p.style.top);  // px CSS
+      P.push({wx:anchorDefs[i].x, wy:anchorDefs[i].y, X:px, Y:py});
+    }
+  });
+  if(P.length<3){ alert("Au moins 3 ancres."); return; }
+  T = solveAffineLS(P);            // T en px CSS (taille actuelle)
+  calW = wrap.clientWidth;         // on mémorise la taille actuelle
+  calH = wrap.clientHeight;
+  $("rms").textContent=rmsError(P,T).toFixed(2);
+  draw();
+};
+
+/* ---- Save / Load ---- */
+$("saveCalib").onclick=()=>{
+  if(!T){alert("Pas encore calibré !");return;}
+  localStorage.setItem("ascentCalib", JSON.stringify({matrix:T, w:calW, h:calH}));
+  alert("Calibration sauvegardée !");
+};
+$("loadCalib").onclick=()=>{
+  const s=localStorage.getItem("ascentCalib");
+  if(!s){alert("Rien de sauvegardé");return;}
+  const data=JSON.parse(s);
+  const K=data.matrix; const w0=data.w||wrap.clientWidth, h0=data.h||wrap.clientHeight;
+  const sx=wrap.clientWidth / w0, sy=wrap.clientHeight / h0;
+  // on adapte la matrice à la nouvelle taille CSS (post-scale)
+  T=[ K[0]*sx, K[1]*sx, K[2]*sx,  K[3]*sy, K[4]*sy, K[5]*sy ];
+  calW=wrap.clientWidth; calH=wrap.clientHeight;
+  alert("Calibration rechargée !");
+  draw();
+};
+
+/* ---- Math ---- */
+function worldToImg(wx,wy,t){ return {X:t[0]*wx+t[1]*wy+t[2], Y:t[3]*wx+t[4]*wy+t[5]}; }
+function rmsError(P,t){let s=0;P.forEach(p=>{const q=worldToImg(p.wx,p.wy,t);s+=(q.X-p.X)**2+(q.Y-p.Y)**2});return Math.sqrt(s/P.length);}
+function solveAffineLS(P){
+  const N=P.length,m=2*N,n=6;
+  const A=Array.from({length:m},()=>Array(n).fill(0)),b=Array(m).fill(0);
+  P.forEach((p,i)=>{A[2*i]=[p.wx,p.wy,1,0,0,0];b[2*i]=p.X;A[2*i+1]=[0,0,0,p.wx,p.wy,1];b[2*i+1]=p.Y;});
+  const AtA=matMul(matTrans(A),A),Atb=matVec(matTrans(A),b);
+  return gaussSolve(AtA,Atb);
+}
+function matTrans(M){const r=M.length,c=M[0].length;const T=Array.from({length:c},()=>Array(r));
+  for(let i=0;i<r;i++)for(let j=0;j<c;j++)T[j][i]=M[i][j];return T;}
+function matMul(A,B){const r=A.length,c=B[0].length,k=A[0].length;const R=Array.from({length:r},()=>Array(c).fill(0));
+  for(let i=0;i<r;i++)for(let j=0;j<c;j++){let s=0;for(let t=0;t<k;t++)s+=A[i][t]*B[t][j];R[i][j]=s;}return R;}
+function matVec(A,v){const r=A.length,c=A[0].length;const out=Array(r).fill(0);
+  for(let i=0;i<r;i++){let s=0;for(let j=0;j<c;j++)s+=A[i][j]*v[j];out[i]=s;}return out;}
+function gaussSolve(A,b){const n=b.length;const M=A.map(r=>r.slice());const x=b.slice();
+  for(let i=0;i<n;i++){let p=i;for(let r=i+1;r<n;r++)if(Math.abs(M[r][i])>Math.abs(M[p][i]))p=r;
+    [M[i],M[p]]=[M[p],M[i]];[x[i],x[p]]=[x[p],x[i]];const diag=M[i][i]||1e-12;
+    for(let j=i;j<n;j++)M[i][j]/=diag;x[i]/=diag;
+    for(let r=0;r<n;r++)if(r!==i){const f=M[r][i];for(let j=i;j<n;j++)M[r][j]-=f*M[i][j];x[r]-=f*x[i];}}
+  return x;
+}
+
+/* ---- Dessin ---- */
+function draw(){
+  // canvas à la taille CSS courante
+  wrap.querySelectorAll(".kill").forEach(n => n.remove());
+
+  syncCanvasToCSS();
+  // fond
+  ctx.clearRect(0,0,cv.width,cv.height);
+  if(bg.complete&&bg.naturalWidth) ctx.drawImage(bg,0,0,cv.width,cv.height);
+
+  // nettoie anciens tags
+  wrap.querySelectorAll(".tag,.kill").forEach(n=>n.remove());
+  // remet les pins au-dessus
+  pins.forEach(p=>wrap.appendChild(p));
+// kills (HTML)
+const idx = parseInt($("killSlider").value);
+const k = kills[idx];
+document.getElementById("roundIndex").innerHTML = k.round
+
+// Victime
+const vPos = worldToImg(k.victimLocation.x, k.victimLocation.y, T);
+let vDot = document.createElement("div");
+vDot.className = "kill kill-victim";
+vDot.style.left = vPos.X+"px";
+vDot.style.top  = vPos.Y+"px";
+wrap.appendChild(vDot);
+
+// Killer
+const killerObj = k.playerLocations.find(p => p.subject === k.killer);
+if (killerObj) {
+  const kPos = worldToImg(killerObj.location.x, killerObj.location.y, T);
+  let kDot = document.createElement("div");
+  kDot.className = "kill kill-killer";
+  kDot.style.left = kPos.X+"px";
+  kDot.style.top  = kPos.Y+"px";
+  wrap.appendChild(kDot);
+}
+
+
+
+
+  if(!T) return;
+
+  // callouts (HTML)
+
+}
+
+/* redraw si la fenêtre change (on rescaille T à l’affichage au prochain load) */
+window.addEventListener("resize", draw);
+
+init()
+</script>

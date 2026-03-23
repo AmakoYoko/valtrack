@@ -1,0 +1,1195 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>VALTrack — Match</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body{background:#0a0a0b;color:#e5e7eb;font-family:Inter,ui-sans-serif,system-ui}
+    .glass{backdrop-filter:blur(10px);background:rgba(255,255,255,.06)}
+    .card{border:1px solid rgba(255,255,255,.08)}
+    #mapImg{object-fit:contain;background:#0f1115}
+    
+  </style>
+
+
+<style>
+
+  .map-container{
+    
+    
+    aspect-ratio:1/1;
+    position:relative}
+  #wrap{position:absolute;inset:0}
+  #cv{width:100%;height:100%;display:block;background:#111}
+  .tag{position:absolute;transform:translate(-50%,-100%);padding:2px 6px;background:#fff;border-radius:6px;box-shadow:0 1px 4px rgba(0,0,0,.25);white-space:nowrap}
+  .pin{position:absolute;width:10px;height:10px;border-radius:50%;border:2px solid #fff;background:#00a;transform:translate(-50%,-50%);cursor:grab}
+  .pin:active{cursor:grabbing}
+  .pin div{position:absolute;top:-14px;left:12px;color:white;font-size:12px;text-shadow:0 0 3px black}
+  .kill{position:absolute;width:14px;height:14px;border-radius:50%;background:red;border:2px solid white;transform:translate(-50%,-50%)}
+  small{opacity:.7}
+  #controls{
+    display:none;
+    position: absolute;
+    background-color:#ffffffa6;
+    z-index: 10000;
+    bottom:0;
+    right:0;
+  }
+
+  .kill-victim{background:red;border:2px solid white}
+.kill-killer{background:lime;border:2px solid black}
+
+.team { box-shadow: 0 0 6px 2px blue; }
+.tt{position:absolute;pointer-events:none;transform:translate(10px,-50%);
+  min-width:180px;display:flex;gap:10px;align-items:center;
+  padding:10px;border-radius:12px;background:rgba(17,17,19,.92);
+  border:1px solid rgba(255,255,255,.08);box-shadow:0 6px 24px rgba(0,0,0,.35);
+  color:#e5e7eb;font-size:13px;z-index:10000}
+.tt img{width:42px;height:42px;border-radius:10px;object-fit:cover;background:#111;border:1px solid rgba(255,255,255,.08)}
+.tt .title{font-weight:700;line-height:1.1}
+.tt .sub{opacity:.7;font-size:12px}
+.tt.hidden{display:none}
+#killSlider::-webkit-slider-thumb {
+  appearance: none;
+  height: 16px; width: 16px;
+  border-radius: 50%;
+  background: #ef4444; /* rouge Tailwind */
+  border: 2px solid white;
+  cursor: pointer;
+  margin-top: -7px;
+}
+#killSlider::-moz-range-thumb {
+  height: 16px; width: 16px;
+  border-radius: 50%;
+  background: #ef4444;
+  border: 2px solid white;
+  cursor: pointer;
+}
+
+</style>
+
+
+</head>
+<body class="min-h-screen">
+  <!-- Header -->
+  <header class="sticky top-0 z-40 border-b border-white/10 bg-zinc-950/80 backdrop-blur">
+    <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <a href="/" class="flex items-center gap-2">
+        <span class="inline-grid place-items-center h-9 w-9 rounded-xl bg-white/10">
+          <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M12 2v4m0 12v4M2 12h4m12 0h4"/>
+          </svg>
+        </span>
+        <span class="font-extrabold tracking-tight">VALTrack</span>
+      </a>
+      <a href="/app" class="text-sm text-zinc-300 hover:text-white">← Accueil</a>
+    </div>
+  </header>
+
+  <!-- HERO -->
+  <section class="mx-auto max-w-6xl mt-4 rounded-2xl overflow-hidden glass card">
+    <div id="heroImg" class="h-48 bg-center bg-cover relative">
+      <div class="absolute inset-0 bg-gradient-to-r from-black/70 to-black/30"></div>
+      <div class="absolute bottom-4 left-4">
+        <div style="display: flex
+;
+    gap: 1em;
+    align-content: center;
+    align-items: center;">
+        <img style="height:1.6em" id="img_mode" src="">
+        <div class="text-xs text-indigo-300" id="mode">—</div>
+        </div>
+        <div class="text-2xl font-extrabold leading-tight" id="mapName">—</div>
+        <div class="text-zinc-400 text-sm" id="scoreline">—</div>
+      </div>
+    </div>
+  </section>
+<!-- TEAMS STRIP + PLAYER FOCUS -->
+<section class="mx-auto max-w-6xl space-y-4 mt-4" id="matchHeader">
+  <!-- Teams strip -->
+  <div class="rounded-2xl overflow-hidden border border-white/10" >
+    <div class="bg-gradient-to-r from-emerald-600/20 via-zinc-800 to-rose-600/20 px-4 py-3" >
+      <div class="flex items-center justify-center gap-3 overflow-x-auto no-scrollbar" style="overflow: hidden;" id="teamsStrip"></div>
+    </div>
+  </div>
+
+  <!-- Player focus -->
+  <div class="glass rounded-2xl border border-white/10 p-4" id="playerFocus"></div>
+</section>
+<section id="duels" class="mx-auto max-w-6xl mt-6">
+  <details class="group glass rounded-2xl border border-white/10 overflow-hidden" open>
+    <summary class="flex items-center justify-between px-4 py-3 cursor-pointer select-none">
+      <div class="flex items-center gap-2">
+        <span class="font-semibold">Duels</span>
+        <span class="text-xs text-zinc-400">A (gauche) vs B (haut)</span>
+      </div>
+      <svg class="h-4 w-4 opacity-80 transition-transform group-open:rotate-180" viewBox="0 0 20 20" fill="currentColor">
+        <path d="M5.25 7.5 10 12.25 14.75 7.5"/>
+      </svg>
+    </summary>
+
+    <div class="px-4 pb-4 space-y-4">
+      <!-- Cards -->
+      <div class="grid md:grid-cols-3 gap-4" id="duelCards"></div>
+
+      <!-- Matrix -->
+      <div class="glass rounded-2xl border border-white/10 overflow-auto">
+        <div class="px-4 py-3 border-b border-white/10 flex items-center justify-between">
+          <div class="font-semibold">Tableau des duels</div>
+          <div class="text-xs text-zinc-400">A (gauche) vs B (haut)</div>
+        </div>
+        <table class="w-full text-sm" id="duelTable"></table>
+      </div>
+    </div>
+  </details>
+</section>
+
+
+  <main class="mx-auto max-w-6xl px-4 py-6 space-y-6">
+    <section class="grid gap-6 lg:grid-cols-2">
+      <div class="glass card rounded-xl">
+        <div class="px-4 py-3 border-b border-white/10 flex items-center justify-between">
+          <h2 class="font-semibold">Équipe A</h2><span id="scoreA" class="text-indigo-300 text-sm">—</span>
+        </div>
+        <div class="overflow-auto">
+          <table class="w-full text-sm">
+            <thead class="text-zinc-400">
+              <tr class="border-b border-white/10">
+                <th class="text-left px-3 py-2">Joueur</th>
+                <th class="px-2">K</th><th class="px-2">D</th><th class="px-2">A</th>
+                <th class="px-2">+/-</th><th class="px-2">K/D</th>
+              </tr>
+            </thead>
+            <tbody id="tbodyA"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="glass card rounded-xl">
+        <div class="px-4 py-3 border-b border-white/10 flex items-center justify-between">
+          <h2 class="font-semibold">Équipe B</h2><span id="scoreB" class="text-rose-300 text-sm">—</span>
+        </div>
+        <div class="overflow-auto">
+          <table class="w-full text-sm">
+            <thead class="text-zinc-400">
+              <tr class="border-b border-white/10">
+                <th class="text-left px-3 py-2">Joueur</th>
+                <th class="px-2">K</th><th class="px-2">D</th><th class="px-2">A</th>
+                <th class="px-2">+/-</th><th class="px-2">K/D</th>
+              </tr>
+            </thead>
+            <tbody id="tbodyB"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+<section class="grid gap-6 lg:grid-cols-2">
+  <!-- Stats -->
+  <div class="glass card rounded-xl p-4">
+    <div class="font-semibold mb-2">Stats globales</div>
+<canvas id="killsOverTime" height="130"></canvas>
+<canvas id="killsPerRound" height="160" class="mt-6"></canvas>
+
+
+
+  </div>
+
+  <!-- Kills sur la carte -->
+  <div class="glass card rounded-xl overflow-hidden relative">
+    <div class="px-4 py-3 flex items-center justify-between border-b border-white/10">
+      <div class="font-semibold">Kills sur la carte</div>
+      Cette fonction peux ne pas être disponible
+    </div>
+
+    <div class="relative">
+      <!-- Carte -->
+      <div class="map-container">
+        <div id="wrap">
+          <canvas id="cv"></canvas>
+        </div>
+      </div>
+
+      <!-- Slider flottant -->
+      <div class="absolute bottom-2 left-1/2 -translate-x-1/2 w-[90%] z-10">
+        <div class="relative bg-black/40 backdrop-blur-md rounded-xl p-3 border border-white/10 shadow-lg">
+          
+          <!-- slider -->
+          <input id="killSlider" type="range" min="0" max="0" value="0" step="1"
+            class="w-full h-2 bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-red-500">
+          
+          <!-- marqueurs de round -->
+          <div id="roundMarks" class="absolute top-1/2 left-0 w-full pointer-events-none"></div>
+          
+          <!-- infos slider -->
+          <div class="flex justify-between text-xs text-zinc-400 mt-2">
+            <span><span id="killIndex">0</span>/<span id="killTotal">0</span> kills</span>
+            <span>Round <span id="roundIndex">0</span></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tooltip -->
+    <div id="tt" class="tt hidden absolute z-20">
+      <img id="ttAgent" alt="">
+      <div>
+        <div id="ttName" class="title">Player</div>
+        <div id="ttRole" class="sub">role</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+  </main>
+
+<script>
+const qs = new URLSearchParams(location.search);
+const MATCH_ID = qs.get('id') || location.pathname.split('/').pop();
+
+function getSession(){ return localStorage.getItem('session_token') || (document.cookie.match(/(?:^| )session_token=([^;]+)/)?.[1] ?? ""); }
+async function api(path){
+  const r = await fetch(path, { headers: { Authorization: 'Session '+getSession() } });
+  if(!r.ok) throw new Error(`HTTP ${r.status}`); return r.json();
+}
+
+// Maps : index par URL & UUID
+async function fetchMapsIndex(){
+  const r = await fetch('https://valorant-api.com/v1/maps?language=fr-FR');
+  const { data=[] } = await r.json();
+  const byUrl = {}, byUuid = {};
+  for(const m of data){
+   // fetchMapsIndex()
+const info = {
+  uuid: m.uuid,
+  name: m.displayName,
+  url: (m.mapUrl||'').toLowerCase(),
+  displayIcon: m.displayIcon || null,
+    splash: m.splash || null,
+
+  callouts: m.callouts,
+  xMultiplier: Number(m.xMultiplier ?? NaN),
+  yMultiplier: Number(m.yMultiplier ?? NaN),
+  xScalarToAdd: Number(m.xScalarToAdd ?? NaN),
+  yScalarToAdd: Number(m.yScalarToAdd ?? NaN),
+};
+
+    if(info.url)  byUrl[info.url]=info;
+    if(info.uuid) byUuid[info.uuid]=info;
+  }
+  return { byUrl, byUuid };
+}
+
+const MODE_LABEL = {
+  competitive:'Compétitif', unrated:'Non classé', spikerush:'Spike Rush',
+  swiftplay:'Swiftplay', ggteam:'Escalation', hurm:'Match à mort',
+  replication:'Replication', deathmatch:'Match à mort', custom:'Personnalisé'
+};
+const niceMode = raw => (raw? (MODE_LABEL[raw.toLowerCase().split('/').pop()] || raw) : '—');
+
+function aggregate(match){
+  const players = {};
+  (match.players||[]).forEach(p=>{
+    players[p.subject] = {
+      id:p.subject, name:p.gameName||p.subject.slice(0,8),
+      team:p.teamId||p.team||'Blue', k:0,d:0,a:0,
+      agentID: p.characterId
+    };
+  });
+  const pts=[]; let scoreA=0, scoreB=0;
+  for(const r of (match.roundResults||[])){
+    const w=(r.winningTeam||'').toLowerCase();
+    if(w.includes('blue')) scoreA++; else if(w.includes('red')) scoreB++;
+    for(const ps of (r.playerStats||[])){
+      const killer=ps.subject;
+      for(const k of (ps.kills||[])){
+        if(players[killer]) players[killer].k++;
+        if(players[k.victim]) players[k.victim].d=(players[k.victim].d||0)+1;
+        (k.assistants||[]).forEach(a=>{ if(players[a]) players[a].a++; });
+        if(k.victimLocation) pts.push({x:k.victimLocation.x,y:k.victimLocation.y,team:players[killer]?.team||'Blue'});
+      }
+    }
+  }
+  return {players, scoreA, scoreB, pts};
+}
+
+function computeBounds(mapInfo, pts){
+  const xs=[], ys=[];
+  (mapInfo.callouts||[]).forEach(c=>{ if(c.location){ xs.push(c.location.x); ys.push(c.location.y); }});
+  pts.forEach(p=>{ xs.push(p.x); ys.push(p.y); });
+  if(!xs.length||!ys.length) return {minX:0,maxX:1,minY:0,maxY:1};
+  return {minX:Math.min(...xs),maxX:Math.max(...xs),minY:Math.min(...ys),maxY:Math.max(...ys)};
+}
+function adjustBoundsToAspect(b,w,h){
+  const ar=w/h, bar=(b.maxX-b.minX)/(b.maxY-b.minY);
+  if(Math.abs(bar-ar)<1e-3) return b;
+  if(bar>ar){ const bh2=(b.maxX-b.minX)/ar, d=(bh2-(b.maxY-b.minY))/2; return {...b,minY:b.minY-d,maxY:b.maxY+d}; }
+  const bw2=(b.maxY-b.minY)*ar, d=(bw2-(b.maxX-b.minX))/2; return {...b,minX:b.minX-d,maxX:b.maxX+d};
+}
+function projectPoint(p, mapInfo, canvas, pts){
+  const hasTransform = [mapInfo.xMultiplier, mapInfo.yMultiplier, mapInfo.xScalarToAdd, mapInfo.yScalarToAdd]
+    .every(v => typeof v === "number" && !isNaN(v));
+
+  if (hasTransform){
+    return {
+      x: (p.x * mapInfo.xMultiplier + mapInfo.xScalarToAdd) * canvas.width,
+      y: (1 - (p.y * mapInfo.yMultiplier + mapInfo.yScalarToAdd)) * canvas.height
+    };
+  } else {
+    // fallback avec bounding box des kills
+    const xs = pts.map(k => k.x);
+    const ys = pts.map(k => k.y);
+    const minX = Math.min(...xs), maxX = Math.max(...xs);
+    const minY = Math.min(...ys), maxY = Math.max(...ys);
+
+    return {
+      x: ((p.x - minX) / (maxX - minX)) * canvas.width,
+      y: canvas.height - ((p.y - minY) / (maxY - minY)) * canvas.height
+    };
+  }
+}
+function projectKillToPx(kill, mapInfo, W, H, origin="topleft") {
+  // 1) jeu -> normalisé
+  const u = kill.x * mapInfo.xMultiplier + mapInfo.xScalarToAdd;
+  const v = kill.y * mapInfo.yMultiplier + mapInfo.yScalarToAdd;
+
+  // 2) normalisé -> pixels (repère haut-gauche avec Y inversé)
+  let px = u * W;
+  let py = (1 - v) * H; // si besoin, teste aussi: let py = v * H;
+
+  // 3) changer d’origine si demandé
+  if (origin === "bottomright") {
+    px = W - px;
+    py = H - py;
+  } else if (origin === "center") {
+    px = px - W/2;
+    py = py - H/2;
+    // pour dessiner sur canvas, retranslate ensuite: px += W/2; py += H/2;
+  }
+  return { px, py };
+}
+
+function drawKills(mapInfo, kills) {
+  const img = document.getElementById("mapImg");
+  const canvas = document.getElementById("killCanvas");
+  const ctx = canvas.getContext("2d");
+
+  img.onload = () => {
+    const W = canvas.width  = img.clientWidth;
+    const H = canvas.height = img.clientHeight;
+    ctx.clearRect(0,0,W,H);
+
+    for (const k of kills) {
+      const { px, py } = projectKillToPx(k, mapInfo, W, H, "bottomright"); // ← origine bas-droit
+      ctx.beginPath();
+      ctx.arc(px, py, 4, 0, Math.PI*2);
+      ctx.fillStyle = (k.team?.toLowerCase().includes('blue')) ? '#60a5fa' : '#f87171';
+      ctx.fill();
+    }
+  };
+  img.src = mapInfo.displayIcon + (mapInfo.displayIcon.includes('?')?'&':'?') + 't=' + Date.now();
+}
+
+
+
+async function fetchAgentsIndex(){
+  const r = await fetch('https://valorant-api.com/v1/agents?isPlayableCharacter=true&language=fr-FR');
+  const { data=[] } = await r.json();
+  const byId = {};
+  for(const a of data){
+    byId[a.uuid] = {
+      name: a.displayName,
+      icon: a.displayIconSmall || a.displayIcon || a.bustPortrait || a.fullPortraitV2 || a.fullPortrait || null,
+      portrait: a.fullPortraitV2 || a.fullPortrait || a.displayIcon || null
+    };
+  }
+  return byId;
+}
+
+function computePerPlayerStats(match){
+  const rounds = (match.roundResults||[]).length || 1;
+  const stats = {};
+  (match.players||[]).forEach(p=>{
+    stats[p.subject] = {
+      id: p.subject,
+      name: p.gameName || p.subject.slice(0,8),
+      tag:  p.tagLine || "",
+      team: (p.teamId || p.team || 'Blue').toLowerCase(),
+      agentId: p.characterId || null,
+      k:0,d:0,a:0, score:0, dmg:0, hs:0, shots:0
+    };
+  });
+  for(const r of (match.roundResults||[])){
+    for(const ps of (r.playerStats||[])){
+      const s = stats[ps.subject]; if(!s) continue;
+      s.score += (ps.score||0);
+      for(const d of (ps.damage||[])){
+        s.dmg += (d.damage||0);
+        s.hs  += (d.headshots||0);
+        s.shots += ((d.headshots||0)+(d.bodyshots||0)+(d.legshots||0));
+      }
+      for(const k of (ps.kills||[])){
+        s.k += 1;
+        if (stats[k.victim]) stats[k.victim].d += 1;
+        (k.assistants||[]).forEach(aid=>{ if(stats[aid]) stats[aid].a += 1; });
+      }
+    }
+  }
+  // dérivés
+  for(const s of Object.values(stats)){
+    s.kd  = s.d ? (s.k/s.d) : (s.k>0 ? s.k : 0);
+    s.acs = Math.round(s.score/rounds);
+    s.adr = Math.round(s.dmg/rounds);
+    s.hsP = s.shots ? Math.round((s.hs/s.shots)*1000)/10 : 0; // ex: 4.3
+  }
+  return stats;
+}
+
+function renderMatchHeader(match){
+  (async ()=>{
+    const agents = await fetchAgentsIndex();
+    const S = computePerPlayerStats(match);
+    const list = Object.values(S);
+    const A = list.filter(x=>x.team.includes('blue'));
+    const B = list.filter(x=>x.team.includes('red'));
+
+    // Teams strip
+    const el = document.getElementById('teamsStrip');
+    const pill = (txt, cls) => `<span class="text-sm ${cls} font-semibold px-2">${txt}</span>`;
+    const avatar = p => {
+      const a = agents[p.agentId]||{};
+      const src = a.icon || '';
+      return `<button class="shrink-0 -mb-1 group" data-pid="${p.id}" title="${p.name}">
+        <img src="${src}" class="h-10 w-10 rounded-xl border border-white/10 bg-zinc-900 object-cover group-hover:scale-105 transition" />
+      </button>`;
+    };
+    el.innerHTML = [
+      pill('Team A','text-emerald-300'),
+      ...A.map(avatar),
+      `<span class="px-3 text-zinc-400">VS</span>`,
+      ...B.map(avatar),
+      pill('Team B','text-rose-300')
+    ].join('');
+
+    // Player focus (par défaut: meilleur ACS côté A sinon B)
+    const pick = (arr)=> arr.slice().sort((x,y)=>y.acs-x.acs)[0] || arr[0];
+    let current = pick(A) || pick(B);
+
+    function drawFocus(p){
+      const a = agents[p.agentId]||{};
+      const name = p.name + (p.tag?` <span class="text-zinc-400">#${p.tag}</span>`:'');
+      document.getElementById('playerFocus').innerHTML = `
+        <div class="grid grid-cols-[120px_1fr_auto] items-center gap-4">
+          <img src="${a.portrait||a.icon||''}" class="h-28 w-28 object-contain rounded-xl bg-white/5" alt="">
+          <div class="space-y-1">
+            <div class="text-2xl font-extrabold">${name}</div>
+            <div class="grid grid-cols-5 gap-4 text-sm">
+              <div><div class="text-zinc-400">K/D/A</div><div class="text-xl font-semibold">${p.k} / ${p.d} / ${p.a}</div></div>
+              <div><div class="text-zinc-400">K/D</div><div class="text-xl font-semibold">${p.kd.toFixed(2)}</div></div>
+              <div><div class="text-zinc-400">ADR</div><div class="text-xl font-semibold">${p.adr}</div></div>
+              <div><div class="text-zinc-400">ACS</div><div class="text-xl font-semibold">${p.acs}</div></div>
+              <div><div class="text-zinc-400">HS%</div><div class="text-xl font-semibold">${p.hsP}%</div></div>
+            </div>
+          </div>
+          <a class="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 border border-white/10 text-sm" href="/profile?puuid=${encodeURIComponent(p.id)}">View Profile</a>
+        </div>`;
+    }
+    drawFocus(current);
+
+    // clicks
+    el.addEventListener('click', (e)=>{
+      const btn = e.target.closest('button[data-pid]');
+      if(!btn) return;
+      const pid = btn.getAttribute('data-pid');
+      current = S[pid];
+      drawFocus(current);
+    });
+  })().catch(console.error);
+}
+
+
+// Utilise ton fetchAgentsIndex() existant
+const badge = (v, ok=true) =>
+  `<span class="px-2 py-0.5 rounded-md text-[12px] font-semibold ${ok?'bg-emerald-600/20 text-emerald-300':'bg-rose-600/20 text-rose-300'}">${v}</span>`;
+
+function splitTeams(match){
+  const P = {};
+  (match.players||[]).forEach(p=>{
+    P[p.subject]={ id:p.subject, name:p.gameName||p.subject.slice(0,8),
+      tag:p.tagLine||'', team:(p.teamId||p.team||'Blue').toLowerCase(),
+      agentId:p.characterId||null };
+  });
+  const A=[], B=[];
+  Object.values(P).forEach(x => (x.team.includes('blue')?A:B).push(x));
+  return {A,B,byId:P};
+}
+
+function computeMatrix(match){
+  const {A,B,byId} = splitTeams(match);
+  // matrix[Aid][Bid] = {a2b, b2a}
+  const M = {}; A.forEach(a=>{ M[a.id]={}; B.forEach(b=> M[a.id][b.id]={a2b:0,b2a:0}); });
+
+  for(const r of (match.roundResults||[])){
+    for(const ps of (r.playerStats||[])){
+      const killer = byId[ps.subject]; if(!killer) continue;
+      for(const k of (ps.kills||[])){
+        const vic = byId[k.victim]; if(!vic) continue;
+        const aIsA = killer.team.includes('blue'), vIsB = vic.team.includes('red');
+        const aIsB = killer.team.includes('red'), vIsA = vic.team.includes('blue');
+        if(aIsA && vIsB) M[killer.id]?.[vic.id] && (M[killer.id][vic.id].a2b++);
+        else if(aIsB && vIsA) M[vic.id]?.[killer.id] && (M[vic.id][killer.id].b2a++);
+      }
+    }
+  }
+  return {A,B,M};
+}
+
+function bestPairs(A,B,M){
+  let top={a:null,b:null,score:-1}, misA={a:null,b:null,delta:-1}, misB={a:null,b:null,delta:-1};
+  for(const a of A) for(const b of B){
+    const c = M[a.id][b.id];
+    const minboth = Math.min(c.a2b,c.b2a);
+    if(minboth>top.score) top={a,b,score:minboth};
+
+    const dAB = c.a2b - c.b2a;
+    if(dAB>misA.delta) misA={a,b,delta:dAB};
+    const dBA = c.b2a - c.a2b;
+    if(dBA>misB.delta) misB={a,b,delta:dBA};
+  }
+  return {top,misA,misB};
+}
+
+function cardPair(title, left, right, lVal, rVal, agents){
+  const li = agents[left.agentId]?.icon || '';
+  const ri = agents[right.agentId]?.icon || '';
+  return `
+  <div class="rounded-xl border border-white/10 bg-zinc-900/40 p-4">
+    <div class="text-zinc-300 text-sm mb-2">${title}</div>
+    <div class="grid grid-cols-2 gap-3 items-center">
+      <div class="flex items-center gap-2">
+        <img src="${li}" class="h-10 w-10 rounded-lg border border-white/10 bg-zinc-800 object-cover"/>
+        <div class="text-sm">${left.name}</div>
+      </div>
+      <div class="flex items-center justify-end gap-2">
+        <div class="text-sm">${right.name}</div>
+        <img src="${ri}" class="h-10 w-10 rounded-lg border border-white/10 bg-zinc-800 object-cover"/>
+      </div>
+    </div>
+    <div class="mt-3 grid grid-cols-2 text-center">
+      <div>${badge(lVal,true)} <span class="text-xs text-zinc-400 ml-1">Kills vs Rival</span></div>
+      <div>${badge(rVal,true)} <span class="text-xs text-zinc-400 ml-1">Kills vs Rival</span></div>
+    </div>
+  </div>`;
+}
+
+function renderDuels(match, agents){
+  const {A,B,M} = computeMatrix(match);
+  const {top,misA,misB} = bestPairs(A,B,M);
+
+  // Cards
+  const DC = document.getElementById('duelCards');
+  DC.innerHTML = [
+    top.a && cardPair('Top Rivalité', top.a, top.b, M[top.a.id][top.b.id].a2b, M[top.a.id][top.b.id].b2a, agents) || '',
+    misA.a && cardPair('Mismatch A', misA.a, misA.b, M[misA.a.id][misA.b.id].a2b, M[misA.a.id][misA.b.id].b2a, agents) || '',
+    misB.a && cardPair('Mismatch B', misB.a, misB.b, M[misB.a.id][misB.b.id].a2b, M[misB.a.id][misB.b.id].b2a, agents) || ''
+  ].join('');
+
+  // Table
+  const T = document.getElementById('duelTable');
+  const thB = B.map(b=>{
+    const ico = agents[b.agentId]?.icon || '';
+    return `<th class="px-2 py-2 text-center">
+      <img src="${ico}" class="h-8 w-8 rounded-lg border border-white/10 bg-zinc-800 inline-block object-cover" title="${b.name}"/>
+    </th>`;
+  }).join('');
+  const head = `<thead><tr><th class="px-3 py-2 text-left text-zinc-400">A \\ B</th>${thB}</tr></thead>`;
+
+  const rows = A.map(a=>{
+    const cells = B.map(b=>{
+      const c = M[a.id][b.id]; // a2b vert / b2a rouge
+      return `<td class="px-2 py-2 text-center">
+        <div class="inline-flex gap-2">${badge(c.a2b,true)} ${badge(c.b2a,false)}</div>
+      </td>`;
+    }).join('');
+    const ai = agents[a.agentId]?.icon || '';
+    return `<tr class="border-t border-white/10 hover:bg-white/5">
+      <td class="px-3 py-2">
+        <div class="flex items-center gap-2">
+          <img src="${ai}" class="h-8 w-8 rounded-lg border border-white/10 bg-zinc-800 object-cover"/>
+          <div class="font-medium">${a.name}</div>
+        </div>
+      </td>${cells}</tr>`;
+  }).join('');
+
+  T.innerHTML = head + `<tbody>${rows}</tbody>`;
+}
+
+// ---- Appelle ça après avoir chargé le match ----
+// const agents = await fetchAgentsIndex();
+// renderDuels(match, agents);
+
+
+/**
+ * Transforme le chemin gameMode brut en assetPath comparable à l'API
+ * @param {string} rawMode - ex: "/Game/GameModes/Bomb/BombGameMode.BombGameMode_C"
+ * @returns {string} - ex: "ShooterGame/Content/GameModes/Bomb/BombGameMode_PrimaryAsset"
+ */
+function normalizeGameMode(rawMode) {
+  if (!rawMode) return "";
+  let out = rawMode;
+
+  // remplacer le prefix Unreal
+  out = out.replace(/^\/Game\//, "ShooterGame/Content/");
+
+  // nettoyer le suffixe .XXX_C -> _PrimaryAsset
+  out = out.replace(/\.[^/]+_C$/, "_PrimaryAsset");
+
+  return out;
+}
+
+/**
+ * Résout un gameMode brut en objet API complet
+ * @param {string} rawMode - ex: "/Game/GameModes/Bomb/BombGameMode.BombGameMode_C"
+ * @param {Array} gameModes - liste des gameModes depuis l'API valorant
+ * @returns {object} - objet API du gameMode ou un fallback
+ */
+function resolveGameMode(rawMode, gameModes) {
+  const normalized = normalizeGameMode(rawMode);
+  const gm = gameModes.find(g => g.assetPath === normalized);
+
+  if (gm) return gm;
+
+  // fallback si non trouvé
+  return {
+    displayName: "Unknown",
+    description: "Mode non reconnu",
+    displayIcon: null,
+    assetPath: normalized
+  };
+}
+
+
+let mapInfo= ""
+let mapKey = ""
+async function main(){
+  const { byUrl, byUuid } = await fetchMapsIndex();
+  const match = await api(`/valorant/match/${encodeURIComponent(MATCH_ID)}`);
+  const apiGameModes = await api(`https://valorant-api.com/v1/gamemodes?language=fr-FR`);
+
+  const info  = match.matchInfo || {};
+
+   mapKey=(info.mapId||'').toLowerCase();
+   mapInfo=byUrl[mapKey] || byUuid[info.mapId] || {};
+
+  const {players, scoreA, scoreB, pts} = aggregate(match);
+
+  // HERO (peut utiliser splash)
+  document.getElementById('heroImg').style.backgroundImage =
+    `url(${mapInfo.splash || ''})`;
+
+
+const gm = resolveGameMode(info.gameMode, apiGameModes.data);
+  console.log(gm)
+  document.getElementById('mode').textContent = (gm.displayName).toUpperCase();
+  document.getElementById('img_mode').src = (gm.displayIcon);
+
+  
+  document.getElementById('mapName').textContent = mapInfo.name || (info.mapId||'—');
+
+  document.getElementById('scoreline').textContent = `${scoreA} - ${scoreB}`;
+  document.getElementById('scoreA').textContent = scoreA;
+  document.getElementById('scoreB').textContent = scoreB;
+
+  // TABLES
+  const list=Object.values(players);
+  const A=list.filter(p=>(p.team||'Blue').toLowerCase().includes('blue')).sort((a,b)=>(b.k*1000-b.d)-(a.k*1000-a.d));
+  const B=list.filter(p=>(p.team||'Red').toLowerCase().includes('red')).sort((a,b)=>(b.k*1000-b.d)-(a.k*1000-a.d));
+  const fill=(tbody,rows)=>{ tbody.innerHTML=''; rows.forEach(r=>{
+    const kd=r.d? (r.k/r.d).toFixed(1): (r.k>0? r.k.toFixed(1):'0.0'); const pm=r.k-r.d;
+    console.log(r)
+    tbody.insertAdjacentHTML('beforeend', `
+      <tr class="border-b border-white/5 hover:bg-white/5">
+        <td class="px-3 py-2"><div class="flex items-center gap-2">
+          <span class="inline-flex h-7 w-7 rounded bg-white/10"><img src="https://media.valorant-api.com/agents/${r.agentID}/displayicon.png"></span>
+          <span class="font-medium">${r.name}</span></div></td>
+        <td class="text-center px-2">${r.k}</td>
+        <td class="text-center px-2">${r.d}</td>
+        <td class="text-center px-2">${r.a}</td>
+        <td class="text-center px-2 ${pm>=0?'text-emerald-400':'text-rose-400'}">${pm>=0?'+':''}${pm}</td>
+        <td class="text-center px-2">${kd}</td>
+      </tr>`); }); };
+  fill(document.getElementById('tbodyA'), A);
+  fill(document.getElementById('tbodyB'), B);
+
+  // CHART
+
+  console.log(match.kills)
+// match = { kills, players, teams }
+const kills = [...(match.kills||[])].sort((a,b)=>a.gameTime-b.gameTime);
+
+// Map joueur -> teamId
+const playerTeam = new Map(
+  (match.players||[]).map(p=>[(p.subject||p.Subject), p.teamId])
+);
+
+// Team A/B (prends l'ordre de match.teams)
+const teamA = match.teams?.[0]?.teamId;
+const teamB = match.teams?.[1]?.teamId;
+
+// Séries cumulées
+let cumA = 0, cumB = 0;
+const seriesA = [{x:0,y:0}], seriesB = [{x:0,y:0}];
+
+for (const k of kills) {
+  const t = Math.round((k.gameTime||0)/1000); // secondes
+  const team = playerTeam.get(k.killer);
+  if (team === teamA) cumA++;
+  else if (team === teamB) cumB++;
+  // point à ce time pour chaque équipe (courbe en escalier)
+  seriesA.push({x:t, y:cumA});
+  seriesB.push({x:t, y:cumB});
+}
+
+// Chart.js line stepped
+new Chart(document.getElementById('killsOverTime'), {
+  type: 'line',
+  data: {
+    datasets: [
+      { label: 'Team A', data: seriesA, stepped: true, tension: 0, fill: false },
+      { label: 'Team B', data: seriesB, stepped: true, tension: 0, fill: false }
+    ]
+  },
+  options: {
+    parsing: false,
+    plugins: { legend: { labels: { color: '#cbd5e1' } } },
+    scales: {
+      x: { type: 'linear', title: { display:true, text:'Temps (s)', color:'#cbd5e1' }, ticks:{ color:'#cbd5e1' }, grid:{ color:'rgba(255,255,255,.08)'} },
+      y: { beginAtZero:true, title:{ display:true, text:'Kills cumulés', color:'#cbd5e1' }, ticks:{ color:'#cbd5e1' }, grid:{ color:'rgba(255,255,255,.08)'} }
+    }
+  }
+});
+
+// === cumul dans le temps (déjà fait au-dessus) ===
+
+// === kills par round ===
+const maxRound = Math.max(...kills.map(k=>k.round), 0);
+const killsPerRoundA = Array(maxRound+1).fill(0);
+const killsPerRoundB = Array(maxRound+1).fill(0);
+
+for (const k of kills) {
+  const r = k.round;
+  const team = playerTeam.get(k.killer);
+  if (team === teamA) killsPerRoundA[r]++; 
+  else if (team === teamB) killsPerRoundB[r]++;
+}
+
+new Chart(document.getElementById('killsPerRound'), {
+  type: 'bar',
+  data: {
+    labels: killsPerRoundA.map((_,i)=>`Round ${i+1}`),
+    datasets: [
+      { label:'Team A', data:killsPerRoundA, backgroundColor:'rgba(99,102,241,0.7)' },
+      { label:'Team B', data:killsPerRoundB, backgroundColor:'rgba(244,114,182,0.7)' }
+    ]
+  },
+  options:{
+    plugins:{ legend:{ labels:{ color:'#cbd5e1' } } },
+    responsive:true,
+    scales:{
+      x:{ ticks:{ color:'#cbd5e1' }, grid:{ color:'rgba(255,255,255,.08)' } },
+      y:{ beginAtZero:true, ticks:{ color:'#cbd5e1' }, grid:{ color:'rgba(255,255,255,.08)' } }
+    }
+  }
+});
+
+
+renderMatchHeader(match);
+const agents = await fetchAgentsIndex();
+renderDuels(match, agents);
+ init()
+}
+
+main().catch(console.error);
+</script>
+
+
+
+<script>
+/* ---- Données ---- */
+let callouts=[
+];
+const anchorDefs = {
+  "7eaecc1b-4337-bbf6-6ab9-04b8f06b3319": [
+    { label: "Attacker Spawn", x: 60, y: 50 },
+    { label: "Defender Spawn", x: 1995.2354, y: -9744.923 },
+    { label: "A Site", x: 6153.585, y: -6626.2114 },
+    { label: "B Site", x: -2344.065, y: -7548.511 },
+    { label: "A Window", x: 4023.0244, y: -8180.692 },
+    { label: "B Boat House", x: -4484.774, y: -7763.3584 }
+  ]
+};
+
+
+
+// exemple kills
+let kills = ""
+
+const Calibration = {
+    "7eaecc1b-4337-bbf6-6ab9-04b8f06b3319":{
+    "matrix": [
+        -0.000047690587887570194,
+        0.06303322790343038,
+        737.3072389270351,
+        -0.06454666483430406,
+        -0.0008927588466703384,
+        528.8669958877182
+    ],
+    "w": 911,
+    "h": 911
+    },
+    
+  "d960549e-485c-e861-8d71-aa9d1aed12a2": {
+    "matrix": [
+      0.0009019099648506258,
+      0.05128699972260607,
+      542.8968659978328,
+      -0.05053820820059416,
+      0.000428217393944684,
+      449.20366938938645
+    ],
+    "w": 648,
+    "h": 648
+  },
+    "b529448b-4d60-346e-e89e-00a4c527a405": {
+    "matrix": [
+      0.0008499069642643256,
+      0.049579450534201576,
+      351.77243462722066,
+      -0.050403242329002715,
+      0.0005809003684789263,
+      752.0925879988084
+    ],
+    "w": 648,
+    "h": 648
+  },
+    "2c9d57ec-4431-9c5e-2939-8f9ef6dd5cba": {
+    "matrix": [
+      -0.00029727343864016653,
+      0.03804928277241439,
+      376.06819452011274,
+      -0.037805426652652685,
+      0.00047058783443224873,
+      622.1625754960389
+    ],
+    "w": 648,
+    "h": 648
+  },
+    "2fb9a4fd-47b8-4e7d-a969-74b4046ebd53": {
+    "matrix": [
+      -0.0016281665035111081,
+      0.04056652012477051,
+      300.1898319524565,
+      -0.043517757219271536,
+      -0.0029748657830978497,
+      505.5620534357889
+    ],
+    "w": 648,
+    "h": 648
+  },
+    "690b3ed2-4dff-945b-8223-6da834e30d24": {
+    "matrix": [
+      -0.015990049603455,
+      0.07347045718689635,
+      326.40354140976183,
+      -0.0659208141473978,
+      0.0010007998497888262,
+      265.7018768521759
+    ],
+    "w": 648,
+    "h": 648
+  }
+
+}
+/* ---- DOM ---- */
+const $=id=>document.getElementById(id);
+const cv=$("cv"), ctx=cv.getContext("2d"), wrap=$("wrap");
+let bg=new Image();
+let T=null;        
+let calW=null, calH=null; 
+const pins=[];
+
+
+
+function getSession(){ return localStorage.getItem('session_token') || (document.cookie.match(/(?:^| )session_token=([^;]+)/)?.[1] ?? ""); }
+async function api(path){
+  const r = await fetch(path, { headers: { Authorization: 'Session '+getSession() } });
+  if(!r.ok) throw new Error(`HTTP ${r.status}`); return r.json();
+}
+
+
+let currentRound = 0;
+
+
+const tt = document.getElementById("tt");
+const ttAgent = document.getElementById("ttAgent");
+const ttName  = document.getElementById("ttName");
+const ttRole  = document.getElementById("ttRole");
+
+ wrap.addEventListener("mousemove",async (e)=>{
+  const dot = e.target.closest(".kill");
+  if(!dot){ tt.classList.add("hidden"); return; }
+  const pid  = dot.dataset.pid;
+  const role = dot.dataset.role || "";
+  const p = (window.playersById||{})[pid] || {};
+  const a = p.agentId;
+  
+  data_agent =  await api('https://valorant-api.com/v1/agents/'+a)
+  ttName.textContent = p.name || pid?.slice(0,8) || "—";
+  ttRole.textContent = role;
+  ttAgent.src = data_agent.data.displayIcon;
+  // placer près du curseur
+  const r = wrap.getBoundingClientRect();
+  tt.style.left = (e.clientX - r.left) + "px";
+  tt.style.top  = (e.clientY - r.top)  + "px";
+  tt.classList.remove("hidden");
+});
+wrap.addEventListener("mouseleave", ()=> tt.classList.add("hidden"));
+
+
+/* ---- Image ---- */
+async function fetchMapsIndex(){
+  const r = await fetch('https://valorant-api.com/v1/maps?language=fr-FR');
+  const { data=[] } = await r.json();
+  const byUrl = {}, byUuid = {};
+  for(const m of data){
+   // fetchMapsIndex()
+const info = {
+  uuid: m.uuid,
+  name: m.displayName,
+  url: (m.mapUrl||'').toLowerCase(),
+  displayIcon: m.displayIcon || null,
+    splash: m.splash || null,
+
+  callouts: m.callouts,
+  xMultiplier: Number(m.xMultiplier ?? NaN),
+  yMultiplier: Number(m.yMultiplier ?? NaN),
+  xScalarToAdd: Number(m.xScalarToAdd ?? NaN),
+  yScalarToAdd: Number(m.yScalarToAdd ?? NaN),
+};
+
+    if(info.url)  byUrl[info.url]=info;
+    if(info.uuid) byUuid[info.uuid]=info;
+  }
+  return { byUrl, byUuid };
+}
+function getMyTeam(roundPlayers){
+  if (!myID) return null;
+  const me = roundPlayers.find(p => p.subject === myID);
+  return me ? me.team : null;  // "Blue" ou "Red"
+}
+function buildRoundMarks(kills) {
+  const marks = document.getElementById("roundMarks");
+  marks.innerHTML = "";
+  if (!kills.length) return;
+
+  const max = kills.length - 1;
+  const rounds = [...new Set(kills.map(k=>k.round))];
+  rounds.forEach(r=>{
+    // index du premier kill de ce round
+    const idx = kills.findIndex(k=>k.round === r);
+    const pos = (idx / max) * 100;
+    const mark = document.createElement("div");
+    mark.className = "h-3 w-px bg-white/30";
+    mark.style.left = pos+"%";
+    mark.style.position = "absolute";
+    mark.style.top = "50%";
+    mark.style.transform = "translateY(-50%)";
+    marks.appendChild(mark);
+  });
+}
+
+// après avoir chargé tes kills :
+
+
+let agentsById = ""
+let myID = null;
+let = playersById = {}
+
+async function init(){
+  mapID = mapInfo["uuid"]
+    mapInfoMaps = await fetchMapsIndex()
+    console.log(mapInfoMaps.byUuid[mapID])
+    callouts = mapInfoMaps.byUuid[mapID].callouts
+    myID = await api("/valorant/get_user_info")
+    myID = myID["Subject"]
+    testuserinfo = await api("/valorant/get_user_profile/"+myID)
+
+    console.log(testuserinfo)
+    bg.src = `https://media.valorant-api.com/maps/${mapID}/displayicon.png`
+    const match = await api(`/valorant/match/${encodeURIComponent(MATCH_ID)}`);
+    console.log(match)
+    kills = match.kills
+// après: const match = await api(`/valorant/match/${encodeURIComponent(MATCH_ID)}`);
+ playersById = {};
+(match.players||[]).forEach(p=>{
+  playersById[p.subject] = {
+    id: p.subject,
+    name: p.gameName ? `${p.gameName}#${p.tagLine||''}` : p.subject.slice(0,8),
+    agentId: p.characterId || null
+  };
+});
+ agentsById = await fetchAgentsIndex(); // tu l'as déjà défini plus haut
+buildRoundMarks(kills);
+
+const slider = $("killSlider");
+$("killTotal").textContent = kills.length;
+slider.max = kills.length - 1;
+slider.oninput = () => {
+  $("killIndex").textContent = slider.value;
+  draw();
+};
+
+     syncCanvasToCSS(); 
+    // initAnchors();
+    const s= Calibration[mapID]
+    const data=s;
+    const K=data.matrix; const w0=data.w||wrap.clientWidth, h0=data.h||wrap.clientHeight;
+    const sx=wrap.clientWidth / w0, sy=wrap.clientHeight / h0;
+    // on adapte la matrice à la nouvelle taille CSS (post-scale)
+    T=[ K[0]*sx, K[1]*sx, K[2]*sx,  K[3]*sy, K[4]*sy, K[5]*sy ];
+    calW=wrap.clientWidth; calH=wrap.clientHeight;
+    draw();
+
+
+}
+
+
+
+/* ---- Sync canvas à la taille affichée ---- */
+function syncCanvasToCSS(){
+  cv.width = wrap.clientWidth;
+  cv.height = wrap.clientHeight;
+}
+
+/* ---- Ancres ---- */
+function initAnchors(){
+  const box=$("anchors"); box.innerHTML="";
+  anchorDefs[mapID].forEach((a,i)=>{
+    const row=document.createElement("div");
+    row.innerHTML=`<label><input type="checkbox" checked data-i="${i}"> ${a.label}</label>`;
+    box.appendChild(row);
+
+    const p=document.createElement("div");
+    p.className="pin"; p.style.left="50%"; p.style.top="50%"; p.dataset.i=i;
+    const lbl=document.createElement("div"); lbl.textContent=a.label; p.appendChild(lbl);
+    wrap.appendChild(p); enableDrag(p); pins.push(p);
+  });
+}
+function enableDrag(el){
+  let dragging=false;
+  el.addEventListener("pointerdown",e=>{dragging=true;el.setPointerCapture(e.pointerId);});
+  el.addEventListener("pointermove",e=>{
+    if(!dragging) return;
+    const r=wrap.getBoundingClientRect();
+    const x=e.clientX-r.left, y=e.clientY-r.top;   // px CSS
+    // contraindre aux bords
+    el.style.left=Math.max(0,Math.min(r.width ,x))+"px";
+    el.style.top =Math.max(0,Math.min(r.height,y))+"px";
+  });
+  el.addEventListener("pointerup",()=>dragging=false);
+}
+
+
+/* ---- Math ---- */
+function worldToImg(wx,wy,t){ return {X:t[0]*wx+t[1]*wy+t[2], Y:t[3]*wx+t[4]*wy+t[5]}; }
+function rmsError(P,t){let s=0;P.forEach(p=>{const q=worldToImg(p.wx,p.wy,t);s+=(q.X-p.X)**2+(q.Y-p.Y)**2});return Math.sqrt(s/P.length);}
+function solveAffineLS(P){
+  const N=P.length,m=2*N,n=6;
+  const A=Array.from({length:m},()=>Array(n).fill(0)),b=Array(m).fill(0);
+  P.forEach((p,i)=>{A[2*i]=[p.wx,p.wy,1,0,0,0];b[2*i]=p.X;A[2*i+1]=[0,0,0,p.wx,p.wy,1];b[2*i+1]=p.Y;});
+  const AtA=matMul(matTrans(A),A),Atb=matVec(matTrans(A),b);
+  return gaussSolve(AtA,Atb);
+}
+function matTrans(M){const r=M.length,c=M[0].length;const T=Array.from({length:c},()=>Array(r));
+  for(let i=0;i<r;i++)for(let j=0;j<c;j++)T[j][i]=M[i][j];return T;}
+function matMul(A,B){const r=A.length,c=B[0].length,k=A[0].length;const R=Array.from({length:r},()=>Array(c).fill(0));
+  for(let i=0;i<r;i++)for(let j=0;j<c;j++){let s=0;for(let t=0;t<k;t++)s+=A[i][t]*B[t][j];R[i][j]=s;}return R;}
+function matVec(A,v){const r=A.length,c=A[0].length;const out=Array(r).fill(0);
+  for(let i=0;i<r;i++){let s=0;for(let j=0;j<c;j++)s+=A[i][j]*v[j];out[i]=s;}return out;}
+function gaussSolve(A,b){const n=b.length;const M=A.map(r=>r.slice());const x=b.slice();
+  for(let i=0;i<n;i++){let p=i;for(let r=i+1;r<n;r++)if(Math.abs(M[r][i])>Math.abs(M[p][i]))p=r;
+    [M[i],M[p]]=[M[p],M[i]];[x[i],x[p]]=[x[p],x[i]];const diag=M[i][i]||1e-12;
+    for(let j=i;j<n;j++)M[i][j]/=diag;x[i]/=diag;
+    for(let r=0;r<n;r++)if(r!==i){const f=M[r][i];for(let j=i;j<n;j++)M[r][j]-=f*M[i][j];x[r]-=f*x[i];}}
+  return x;
+}
+
+/* ---- Dessin ---- */
+function draw(){
+  // canvas à la taille CSS courante
+  wrap.querySelectorAll(".kill").forEach(n => n.remove());
+
+  syncCanvasToCSS();
+  // fond
+  ctx.clearRect(0,0,cv.width,cv.height);
+  if(bg.complete&&bg.naturalWidth) ctx.drawImage(bg,0,0,cv.width,cv.height);
+
+  // nettoie anciens tags
+  wrap.querySelectorAll(".tag,.kill").forEach(n=>n.remove());
+  // remet les pins au-dessus
+  pins.forEach(p=>wrap.appendChild(p));
+// kills (HTML)
+const idx = parseInt($("killSlider").value);
+const k = kills[idx];
+document.getElementById("roundIndex").innerHTML = k.round
+
+// Victime
+// Victime
+const vPos = worldToImg(k.victimLocation.x, k.victimLocation.y, T);
+let vDot = document.createElement("div");
+vDot.className = "kill kill-victim";
+vDot.style.left = vPos.X+"px";
+vDot.style.top  = vPos.Y+"px";
+vDot.dataset.pid = k.victim;
+vDot.dataset.role = "Victime";
+
+wrap.appendChild(vDot);
+
+// Killer
+const killerObj = k.playerLocations.find(p => p.subject === k.killer);
+if (killerObj) {
+  const kPos = worldToImg(killerObj.location.x, killerObj.location.y, T);
+  let kDot = document.createElement("div");
+  kDot.className = "kill kill-killer";
+  kDot.style.left = kPos.X+"px";
+  kDot.style.top  = kPos.Y+"px";
+  kDot.dataset.pid = k.killer;
+  kDot.dataset.role = "Killer";
+  wrap.appendChild(kDot);
+}
+
+
+
+
+  if(!T) return;
+
+  // callouts (HTML)
+
+}
+
+/* redraw si la fenêtre change (on rescaille T à l’affichage au prochain load) */
+window.addEventListener("resize", draw);
+
+
+</script>
+
+
+
+
+
+</body>
+</html>

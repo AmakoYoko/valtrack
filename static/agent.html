@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>VALTrack — Mes agents</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root { --hero: url(''); }
+    body { font-family: Inter, ui-sans-serif, system-ui; }
+    .glass { backdrop-filter: blur(8px); background: rgba(255,255,255,0.06); }
+    .shimmer { position: relative; overflow: hidden; }
+    .shimmer::after { content: ""; position: absolute; inset: 0; transform: translateX(-100%); background: linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent); animation: shimmer 1.3s infinite; }
+    @keyframes shimmer { 100% { transform: translateX(100%); } }
+  </style>
+</head>
+<body class="bg-zinc-950 text-zinc-100 min-h-screen">
+  <!-- Header -->
+  <header class="sticky top-0 z-40 border-b border-white/10 bg-zinc-950/80 backdrop-blur">
+    <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <a href="/" class="flex items-center gap-2">
+        <span class="inline-grid place-items-center h-9 w-9 rounded-xl bg-white/10">
+          <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M12 2v4m0 12v4M2 12h4m12 0h4"/>
+          </svg>
+        </span>
+        <span class="font-extrabold tracking-tight">VALTrack</span>
+      </a>
+      <a href="/app" class="text-sm text-zinc-300 hover:text-white">← App</a>
+    </div>
+  </header>
+
+  <!-- Main -->
+  <main class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+    <div class="flex items-center justify-between gap-3">
+      <h1 class="text-2xl font-bold">Mes agents</h1>
+      <div class="text-sm text-zinc-400">Total: <span id="count">—</span></div>
+    </div>
+
+    <!-- Filters / search -->
+    <div class="grid gap-3 sm:grid-cols-3">
+      <input id="q" type="text" placeholder="Rechercher…" class="w-full rounded-xl bg-zinc-900/70 border border-white/10 px-4 py-2 outline-none focus:ring-2 focus:ring-indigo-400">
+      <select id="roleFilter" class="rounded-xl bg-zinc-900/70 border border-white/10 px-3 py-2">
+        <option value="">Tous les rôles</option>
+        <option>Initiateur</option>
+        <option>Contrôleur</option>
+        <option>Dueliste</option>
+        <option>Sentinelle</option>
+      </select>
+      <label class="inline-flex items-center gap-2 text-sm"><input id="showLocked" type="checkbox" class="accent-white/80"> Inclure les agents non possédés</label>
+    </div>
+
+    <!-- Grid -->
+    <section id="grid" class="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+      <!-- cards injected here -->
+    </section>
+
+    <template id="cardTpl">
+      <article class="relative glass rounded-2xl border border-white/10 overflow-hidden">
+        <div class="aspect-[4/5] bg-zinc-900/50 grid place-items-center">
+          <img class="h-full w-full object-cover"/>
+        </div>
+        <div class="p-3 flex items-center gap-3">
+          <img class="h-9 w-9 rounded bg-white/10 object-contain"/>
+          <div class="min-w-0">
+            <p class="font-semibold name truncate">—</p>
+            <p class="text-xs text-zinc-300 role">—</p>
+          </div>
+          <span class="ml-auto text-[11px] px-2 py-1 rounded bg-white/10 text-zinc-200 status">Possédé</span>
+        </div>
+      </article>
+    </template>
+  </main>
+
+  <script>
+    const API_BASE = '';
+    const SESSION = (localStorage.getItem('session_token') || localStorage.getItem('SESSION_TOKEN') || '').trim();
+    const $ = s => document.querySelector(s);
+
+    const state = { allAgents: [], ownedSet: new Set(), showLocked:false, role:'', q:'' };
+
+    async function api(path){
+      const r = await fetch(API_BASE + path, { headers: { 'Authorization': `Session ${SESSION}` } });
+      if(!r.ok) throw new Error(`API ${path} ${r.status}`);
+      return r.json();
+    }
+
+async function fetchOwnedAgents() {
+  const data = await api('/valorant/get_ownedItems');
+  const blocks = data.EntitlementsByTypes || [];
+  const agentsBlock = blocks.find(
+    b => (b.ItemTypeID || '') === '01bb38e1-da47-4e6a-9b3d-945fe4655707'
+  );
+
+  let ids = (agentsBlock?.Entitlements || []).map(e => e.ItemID);
+
+  // 👉 ajoute manuellement ici
+  const extraIds = [
+    '320b2a48-4d9b-a075-30f1-1f93a9b638fa',
+    'eb93336a-449b-9c1b-0a54-a891f7921d69',
+    '9f0d8ba9-4140-b941-57d3-a7ad57c6b417',
+    '569fdd95-4d10-43ab-ca70-79becc718b46',
+    'add6443a-41bd-e414-f6ad-e58d267f4e95'
+   ];
+
+  ids = ids.concat(extraIds);
+
+  state.ownedSet = new Set(ids);
+}
+
+
+    async function fetchAgentsCatalog(){
+      const r = await fetch('https://valorant-api.com/v1/agents?language=fr-FR');
+      const { data = [] } = await r.json();
+      state.allAgents = data.filter(a => a.isPlayableCharacter);
+    }
+
+    function passFilters(a){
+      const byName = (state.q? (a.displayName||'').toLowerCase().includes(state.q): true);
+      const byRole = (state.role? (a.role?.displayName||'') === state.role : true);
+      const owned = state.ownedSet.has(a.uuid);
+      const byOwned = state.showLocked ? true : owned;
+      return byName && byRole && byOwned;
+    }
+
+    function render(){
+      const wrap = $('#grid'); wrap.innerHTML = '';
+      const tpl = $('#cardTpl');
+      const items = state.allAgents.filter(passFilters).sort((a,b)=> (a.displayName||'').localeCompare(b.displayName||''));
+      $('#count').textContent = items.length;
+      for(const a of items){
+        const n = tpl.content.cloneNode(true);
+        const owned = state.ownedSet.has(a.uuid);
+        const portrait = a.fullPortrait || a.bustPortrait || a.displayIcon;
+        n.querySelector('img').src = portrait || '';
+        n.querySelectorAll('img')[1].src = a.displayIcon || a.bustPortrait || '';
+        n.querySelector('.name').textContent = a.displayName;
+        n.querySelector('.role').textContent = a.role?.displayName || '—';
+        const tag = n.querySelector('.status');
+        tag.textContent = owned ? 'Possédé' : 'Non possédé';
+        tag.classList.toggle('bg-emerald-500/20', owned);
+        tag.classList.toggle('text-emerald-200', owned);
+        tag.classList.toggle('bg-zinc-700/40', !owned);
+        tag.classList.toggle('text-zinc-300', !owned);
+        if(!owned){ n.firstElementChild.classList.add('opacity-60'); }
+        wrap.appendChild(n);
+      }
+    }
+
+    // UI bindings
+    $('#q').addEventListener('input', (e)=>{ state.q = (e.target.value||'').trim().toLowerCase(); render(); });
+    $('#roleFilter').addEventListener('change', (e)=>{ state.role = e.target.value; render(); });
+    $('#showLocked').addEventListener('change', (e)=>{ state.showLocked = !!e.target.checked; render(); });
+
+    (async function boot(){
+      try{
+        await Promise.all([fetchOwnedAgents(), fetchAgentsCatalog()]);
+        render();
+      }catch(e){
+        console.warn(e);
+        // Fallback: sans session -> montrer tout le catalogue
+        try{ await fetchAgentsCatalog(); state.showLocked = true; render(); }catch{}
+      }
+    })();
+  </script>
+</body>
+</html>

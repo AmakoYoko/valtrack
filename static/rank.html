@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>VALTrack — Analyse du Rank</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: Inter, ui-sans-serif, system-ui; }
+    .glass { backdrop-filter: blur(10px); background: rgba(255,255,255,0.06); }
+    .shimmer { position:relative; overflow:hidden; }
+    .shimmer::after { content:""; position:absolute; inset:0; transform:translateX(-100%); background:linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent); animation:shimmer 1.2s infinite; }
+    @keyframes shimmer { 100% { transform: translateX(100%); } }
+    .btn-window[aria-pressed="true"]{ outline: 2px solid rgba(255,255,255,.4); }
+    #rankProgress{ display:block; }
+  </style>
+</head>
+<body class="bg-zinc-950 text-zinc-100 min-h-screen">
+  <!-- Loader global -->
+  <div id="globalLoader" class="fixed inset-0 z-[9999] hidden flex flex-col items-center justify-center bg-zinc-950/90 backdrop-blur">
+    <div class="w-12 h-12 border-4 border-white/20 border-t-white rounded-full animate-spin"></div>
+    <p id="loaderText" class="mt-4 text-sm text-zinc-300">Chargement…</p>
+  </div>
+
+  <!-- Header -->
+  <header class="sticky top-0 z-40 border-b border-white/10 bg-zinc-950/80 backdrop-blur">
+    <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <a href="/" class="flex items-center gap-2">
+        <span class="inline-grid place-items-center h-9 w-9 rounded-xl bg-white/10">
+          <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M12 2v4m0 12v4M2 12h4m12 0h4"/>
+          </svg>
+        </span>
+        <span class="font-extrabold tracking-tight">VALTrack</span>
+      </a>
+      <a href="/app" class="text-sm text-zinc-300 hover:text-white">← App</a>
+    </div>
+  </header>
+
+  <main class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+    <!-- Bandeau joueur -->
+    <section class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div class="glass rounded-2xl border border-white/10 p-4">
+        <p class="text-sm text-zinc-400">Joueur</p>
+        <p id="playerTag" class="text-xl font-bold mt-1">—</p>
+      </div>
+      <div class="glass rounded-2xl border border-white/10 p-4">
+        <p class="text-sm text-zinc-400">Rang actuel</p>
+        <div class="mt-2 flex items-center gap-3">
+          <img id="rankIcon" class="h-10 w-10 object-contain hidden" alt="Rang"/>
+          <div id="rankSkeleton" class="h-10 w-10 rounded shimmer"></div>
+          <div>
+            <p id="rankName" class="font-medium">—</p>
+            <p class="text-xs text-zinc-400"><span id="rr">—</span> RR</p>
+          </div>
+        </div>
+      </div>
+      <div class="glass rounded-2xl border border-white/10 p-4">
+        <label class="text-sm text-zinc-400">Acte</label>
+        <select id="seasonSelect" class="mt-2 w-full rounded-xl bg-zinc-900/70 border border-white/10 px-3 py-2"></select>
+      </div>
+      <div class="glass rounded-2xl border border-white/10 p-4">
+        <label class="text-sm text-zinc-400">Plage</label>
+        <div class="mt-2 grid grid-cols-4 gap-2">
+          <button data-window="50"  class="btn-window w-full glass rounded-xl px-3 py-2 text-sm border border-white/10" aria-pressed="true">50</button>
+          <button data-window="100" class="btn-window w-full glass rounded-xl px-3 py-2 text-sm border border-white/10" aria-pressed="false">100</button>
+          <button data-window="200" class="btn-window w-full glass rounded-xl px-3 py-2 text-sm border border-white/10" aria-pressed="false">200</button>
+          <button data-window="all" class="btn-window w-full glass rounded-xl px-3 py-2 text-sm border border-white/10" aria-pressed="false">All</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Graphiques -->
+    <section class="grid gap-6 lg:grid-cols-3">
+      <article class="lg:col-span-2 glass rounded-2xl border border-white/10 p-4">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-lg font-semibold">Progression (RR & V/D)</h2>
+          <span id="hintRR" class="text-xs text-zinc-400"></span>
+        </div>
+        <div class="h-72">
+          <canvas id="rankProgress" class="h-full w-full"></canvas>
+        </div>
+      </article>
+      <article class="glass rounded-2xl border border-white/10 p-4">
+        <h2 class="text-lg font-semibold mb-3">Victoires / Défaites (filtre courant)</h2>
+        <canvas id="resultsPie" height="160"></canvas>
+      </article>
+    </section>
+
+    <!-- Détails récents -->
+    <section class="glass rounded-2xl border border-white/10 p-4">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-lg font-semibold">Derniers matchs compétitifs</h2>
+        <span class="text-xs text-zinc-400">Basé sur /valorant/competitive_updates</span>
+      </div>
+      <div class="max-h-[420px] overflow-y-auto rounded-xl border border-white/5">
+        <table class="min-w-full text-sm">
+          <thead class="sticky top-0 z-10 bg-zinc-900/90 backdrop-blur text-zinc-300">
+            <tr class="text-left">
+              <th class="py-2 px-3">Date</th>
+              <th class="py-2 px-3">Carte</th>
+              <th class="py-2 px-3">Act</th>
+              <th class="py-2 px-3">Mouvement</th>
+              <th class="py-2 px-3">Δ RR</th>
+              <th class="py-2 px-3">RR après</th>
+              <th class="py-2 px-3">Tier</th>
+            </tr>
+          </thead>
+          <tbody id="matchesTbody" class="text-zinc-300 bg-zinc-950/40"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    // ===== Helpers & loader
+    const $  = (s, r=document) => r.querySelector(s);
+    const $$ = (s, r=document) => Array.from(r.querySelectorAll(s));
+    const loaderMessages = ["Connexion à l'API Riot…","Récupération des données…","Analyse des Acts…","Presque prêt…"]; let loaderTimer;
+    function showLoader(){ const el=$('#globalLoader'); el.classList.remove('hidden'); let i=0; $('#loaderText').textContent=loaderMessages[0]; clearInterval(loaderTimer); loaderTimer=setInterval(()=>{ i=(i+1)%loaderMessages.length; $('#loaderText').textContent=loaderMessages[i]; },2000); }
+    function hideLoader(){ $('#globalLoader').classList.add('hidden'); clearInterval(loaderTimer); }
+
+    // ===== API wrapper
+    function getSessionToken(){ return localStorage.getItem('session_token') || document.cookie.split('; ').find(v=>v.startsWith('session_token='))?.split('=')[1]; }
+    async function api(path, opt={}){ const t=getSessionToken(); if(!t){ location.href='/login'; throw new Error('No session'); } const r=await fetch(path,{...opt, headers:{...(opt.headers||{}), Authorization:`Session ${t}`}, credentials:'include'}); if(!r.ok) throw new Error(`${path}: ${r.status}`); const ct=r.headers.get('content-type')||''; return ct.includes('application/json')? r.json(): r.text(); }
+
+    // ===== Identity & rank
+    function showRankIcon(url){ const img=$('#rankIcon'), sk=$('#rankSkeleton'); sk.classList.remove('hidden'); img.classList.add('hidden'); img.onload=()=>{sk.classList.add('hidden'); img.classList.remove('hidden');}; img.onerror=()=>sk.classList.add('hidden'); img.src=url||''; if(img.complete && img.naturalWidth>0){ sk.classList.add('hidden'); img.classList.remove('hidden'); } }
+    async function getIdentity(){ try{ const d=await api('/valorant/get_user_info'); $('#playerTag').textContent = d.GameName && d.TagLine ? d.GameName+'#'+d.TagLine : '—'; return d.Subject||''; }catch(e){ console.warn('identity',e); return ''; } }
+    async function getCurrentRank(){ try{ const d=await api('/valorant/get_current_rank'); if(d?.info?.largeIcon) showRankIcon(d.info.largeIcon); $('#rankName').textContent=d?.info?.tierName||'—'; $('#rr').textContent=d?.rr??'—'; return d; }catch(e){ console.warn('rank',e); return {}; } }
+
+    // ===== Maps (names)
+    const MAPS_BY_URL = new Map();
+    async function fetchMaps(){ try{ const r=await fetch('https://valorant-api.com/v1/maps?language=fr-FR'); const j=await r.json(); (j.data||[]).forEach(m=>{ if(m.mapUrl) MAPS_BY_URL.set(m.mapUrl, m.displayName); }); }catch(e){ console.warn('maps',e); } }
+    const mapNameFromUrl = url => MAPS_BY_URL.get(url) || (url? url.split('/').slice(-1)[0] : '—');
+
+    // ===== Acts depuis /v1/seasons + matches
+    let SEASONS_ALL = new Map(); // id -> {id,name,start,end}
+    async function fetchSeasonsAll(){
+      try{
+        const r = await fetch('https://valorant-api.com/v1/seasons?language=fr-FR');
+        const j = await r.json();
+        SEASONS_ALL = new Map((j.data||[]).map(s=>[
+          s.uuid,
+          { id:s.uuid, name:s.displayName||'Act',
+            start: Date.parse(s.startTime||0)||0,
+            end:   Date.parse(s.endTime||0)||Infinity }
+        ]));
+      }catch(e){ console.warn('seasons all', e); }
+    }
+
+    let ACTS = []; let ACT_BY_ID = new Map();
+    function buildActsFromMatches(matches){
+      const ids = [...new Set(matches.map(m=>m.SeasonID).filter(Boolean))];
+      const acts = ids.map(id => {
+        const meta = SEASONS_ALL.get(id);
+        return meta ? meta : { id, name: id.slice(0,8)+'…', start: 0, end: Infinity };
+      }).sort((a,b)=>a.start-b.start);
+      ACTS = acts; ACT_BY_ID = new Map(acts.map(a=>[a.id,a]));
+    }
+
+    function populateActsSelect(){
+      const sel = $('#seasonSelect'); sel.innerHTML='';
+      ACTS.slice().reverse().forEach(a=>{
+        const s = a.start ? new Date(a.start).toLocaleDateString('fr-FR') : '—';
+        const e = (a.end!==Infinity && a.end) ? new Date(a.end).toLocaleDateString('fr-FR') : '—';
+        const o=document.createElement('option');
+        o.value=a.id; o.textContent = `${a.name} (${s} → ${e})`;
+        sel.appendChild(o);
+      });
+    }
+
+    function pickCurrentAct(){
+      const now=Date.now();
+      return ACTS.find(a=>a.start<=now && now<a.end) || [...ACTS].reverse().find(a=>a.start<=now) || ACTS[ACTS.length-1] || null;
+    }
+
+    // ===== Competitive updates (backend paginé)
+    async function fetchCompetitive(limit){
+      try{
+        const r = await api(`/valorant/competitive_updates?limit=${encodeURIComponent(limit)}`);
+        return Array.isArray(r?.Matches)? r.Matches: [];
+      }catch(e){ console.warn('competitive_updates',e); return []; }
+    }
+
+    // ===== Dataset builder
+    const movementLabel = m => ({MOVEMENT_UNKNOWN:'?', MOVEMENT_INCREASED:'↑', MOVEMENT_DECREASED:'↓', MOVEMENT_STABLE:'='})[m] || m || '?';
+    function buildFromMatches(matches, actId){
+      const filter = actId ? matches.filter(m => m.SeasonID === actId) : matches;
+      const items = filter.slice().sort((a,b)=>a.MatchStartTime-b.MatchStartTime);
+      const x=[], rr=[], wl=[]; let cum=0, w=0, l=0; const rows=[];
+      for(const m of items){
+        const t = new Date(m.MatchStartTime);
+        const rrAfter = Number(m.RankedRatingAfterUpdate||0);
+        const rrDelta = Number(m.RankedRatingEarned||0) + Number(m.RankedRatingPerformanceBonus||0) - Number(m.RankedRatingRefundApplied||0);
+        const mv = m.CompetitiveMovement || 'MOVEMENT_UNKNOWN';
+        if (rrDelta>0){ cum++; w++; } else if (rrDelta<0){ cum--; l++; }
+        x.push(t); rr.push(rrAfter>0? rrAfter:null); wl.push(cum);
+        rows.push({ t, map: mapNameFromUrl(m.MapID), season: ACT_BY_ID.get(m.SeasonID)?.name || '—', mv, rrDelta, rrAfter, tier: m.TierAfterUpdate });
+      }
+      return { x, rr, wl, rows, w, l, hasRR: rr.some(v=>v!=null) };
+    }
+
+    // ===== Charts
+    let progressChart, pieChart;
+    function renderProgressChart(ds){
+      const ctx = document.getElementById('rankProgress');
+      if (progressChart) progressChart.destroy();
+
+      if (!ds.x.length){ document.getElementById('hintRR').textContent = "Aucune donnée pour l’act sélectionné."; return; }
+      document.getElementById('hintRR').textContent = ds.hasRR ? "" : "RR indisponible → V/D cumulées";
+
+      // timestamps pour l’axe temps (fiable)
+      const X = ds.x.map(d => +d);
+      const dataRR = ds.rr.reduce((a,v,i)=>{ if(v!=null) a.push({x:X[i], y:v}); return a; }, []);
+      const dataWL = ds.wl.map((v,i)=> ({x:X[i], y:v}));
+
+      const wlMin = Math.min(...ds.wl, 0), wlMax = Math.max(...ds.wl, 0);
+
+      progressChart = new Chart(ctx, {
+        type:'line',
+        data:{ datasets:[
+          ...(dataRR.length ? [{
+            label:'RR après match',
+            data:dataRR, spanGaps:true, tension:0, fill:false,
+            borderColor:'#60a5fa', pointBackgroundColor:'#60a5fa',
+            pointRadius:2, borderWidth:2, yAxisID:'y', datalabels:{ display:false }
+          }] : []),
+          { label:'V/D cumulées',
+            data:dataWL, stepped:true, tension:0, fill:false,
+            borderColor:'#f472b6', pointBackgroundColor:'#f472b6',
+            pointRadius:2, borderWidth:2, yAxisID:'y1' }
+        ]},
+        plugins:[ChartDataLabels],
+        options:{
+          responsive:true, maintainAspectRatio:false, parsing:false, animation:false,
+          interaction:{ mode:'index', intersect:false },
+          plugins:{
+            legend:{ labels:{ color:'#cbd5e1' } },
+            tooltip:{
+              callbacks:{
+                title:(it)=> it[0]?.raw?.x ? new Date(it[0].raw.x).toLocaleString('fr-FR') : '',
+                label:(it)=> `${it.dataset.label}: ${it.formattedValue}`
+              }
+            },
+            datalabels:{
+              align:'top', anchor:'end', clamp:true,
+              formatter:(v,ctx)=> ctx.dataset.yAxisID==='y1' ? Math.round(v.y) : '',
+              color:'#e5e7eb', font:{ size:10, weight:600 }
+            }
+          },
+          scales:{
+            x:{ type:'time', time:{ unit:'day' }, ticks:{ color:'#cbd5e1' }, grid:{ color:'rgba(255,255,255,.08)' } },
+            y:{ position:'left', display: !!dataRR.length,
+                beginAtZero:true, suggestedMin:0, suggestedMax:100,
+                ticks:{ color:'#cbd5e1' }, grid:{ color:'rgba(255,255,255,.08)' } },
+            y1:{ position:'right',
+                 min: Math.floor(Math.min(wlMin,0) - 1),
+                 max: Math.ceil (Math.max(wlMax,0) + 1),
+                 ticks:{ color:'#cbd5e1', stepSize:1, callback:v=>Number.isInteger(v)?v:'' },
+                 grid:{ drawOnChartArea:false } }
+          }
+        }
+      });
+    }
+
+    function renderPie(w,l){
+      if(pieChart) pieChart.destroy();
+      pieChart = new Chart($('#resultsPie'), {
+        type:'doughnut',
+        data:{ labels:['Victoires','Défaites'], datasets:[{ data:[w,l] }] },
+        options:{ plugins:{ legend:{ labels:{ color:'#cbd5e1' } } } }
+      });
+    }
+
+    function renderTable(rows){
+      const tb=$('#matchesTbody'); tb.innerHTML='';
+      const list = rows.slice().reverse().slice(0,20);
+      if(!list.length){ tb.innerHTML = `<tr><td class="py-3 px-3 text-zinc-400" colspan="7">Aucun match pour l’act sélectionné.</td></tr>`; return; }
+      list.forEach(r=>{
+        const tr=document.createElement('tr'); tr.className='border-b border-white/5 last:border-b-0';
+        tr.innerHTML = `
+          <td class="py-2 px-3">${r.t.toLocaleString('fr-FR')}</td>
+          <td class="py-2 px-3">${r.map}</td>
+          <td class="py-2 px-3">${r.season}</td>
+          <td class="py-2 px-3">${movementLabel(r.mv)}</td>
+          <td class="py-2 px-3 ${r.rrDelta>0?'text-green-400': r.rrDelta<0?'text-rose-400':'text-zinc-300'}">${r.rrDelta>0?'+':''}${r.rrDelta}</td>
+          <td class="py-2 px-3">${r.rrAfter ?? '—'}</td>
+          <td class="py-2 px-3">${r.tier ?? '—'}</td>`;
+        tb.appendChild(tr);
+      });
+    }
+
+    // ===== UI
+    let WINDOW='50';
+    function bindWindowButtons(){
+      $$(".btn-window").forEach(btn=>{
+        btn.addEventListener('click', e=>{
+          $$(".btn-window").forEach(b=>b.setAttribute('aria-pressed','false'));
+          e.currentTarget.setAttribute('aria-pressed','true');
+          WINDOW = e.currentTarget.getAttribute('data-window');
+          refresh();
+        });
+      });
+    }
+
+    // ===== Flow
+    async function refresh(){
+      showLoader();
+      try{
+        const sel = $('#seasonSelect');
+        const matches = await fetchCompetitive(WINDOW==='all'? 200: Number(WINDOW));
+        if (!matches.length){
+          $('#hintRR').textContent = "Aucun match compétitif.";
+          if (progressChart) progressChart.destroy();
+          if (pieChart) pieChart.destroy();
+          renderTable([]); return;
+        }
+
+        // Construire acts depuis les matchs si vide, puis peupler le select
+        if (ACTS.length === 0){
+          buildActsFromMatches(matches);
+          populateActsSelect();
+        }
+
+        // Act garanti présent
+        let actId = sel.value || '';
+        if (!actId || !matches.some(m => m.SeasonID === actId)) {
+          const latest = [...matches].sort((a,b)=> b.MatchStartTime - a.MatchStartTime)[0];
+          if (latest?.SeasonID){
+            actId = latest.SeasonID;
+            if (![...sel.options].some(o=>o.value===actId)){
+              const meta = ACT_BY_ID.get(actId);
+              const s = meta?.start ? new Date(meta.start).toLocaleDateString('fr-FR') : '—';
+              const e = (meta && meta.end!==Infinity && meta.end) ? new Date(meta.end).toLocaleDateString('fr-FR') : '—';
+              const o=document.createElement('option');
+              o.value = actId; o.textContent = meta ? `${meta.name} (${s} → ${e})` : 'Act courant (données)';
+              sel.prepend(o);
+            }
+            sel.value = actId;
+          }
+        }
+
+        let ds = buildFromMatches(matches, actId);
+        if (!ds.rows.length){
+          const withData = [...ACTS].reverse().find(a => matches.some(m => m.SeasonID === a.id));
+          if (withData && withData.id !== actId){ sel.value = withData.id; ds = buildFromMatches(matches, withData.id); }
+        }
+
+        renderProgressChart(ds);
+        renderPie(ds.w, ds.l);
+        renderTable(ds.rows);
+      } finally { hideLoader(); }
+    }
+
+    async function boot(){
+      showLoader();
+      try{
+        await getIdentity(); await getCurrentRank();
+        await Promise.all([fetchMaps(), fetchSeasonsAll()]);
+        bindWindowButtons();
+        await refresh();
+        $('#seasonSelect').addEventListener('change', refresh);
+      } finally { hideLoader(); }
+    }
+
+    window.addEventListener('load', boot);
+  </script>
+</body>
+</html>

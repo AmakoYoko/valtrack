@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>VALTrack — Connexion</title>
+  <meta name="description" content="Page de connexion au tableau de bord VALTrack." />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    html{scroll-behavior:smooth}
+    body{font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial}
+    .glass{backdrop-filter:blur(8px);background:rgba(255,255,255,.06)}
+  </style>
+</head>
+<body class="bg-zinc-950 text-zinc-100 min-h-screen">
+  <!-- accents -->
+  <div class="absolute inset-0 -z-10 opacity-40 pointer-events-none" aria-hidden="true">
+    <div class="absolute -top-48 left-1/2 -translate-x-1/2 h-[520px] w-[920px] rounded-full blur-3xl"
+         style="background: radial-gradient(600px 240px at 50% 50%, #a78bfa33, transparent 70%);"></div>
+  </div>
+
+  <!-- header -->
+  <header class="px-6 py-5 flex items-center justify-between">
+    <a href="/" class="flex items-center gap-2">
+      <span class="inline-grid place-items-center h-9 w-9 rounded-xl bg-white/10">
+        <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="3"/><path d="M12 2v4m0 12v4M2 12h4m12 0h4"/>
+        </svg>
+      </span>
+      <span class="font-extrabold tracking-tight">VALTrack</span>
+    </a>
+    <a href="/" class="text-sm text-zinc-400 hover:text-white">← Retour</a>
+  </header>
+
+  <!-- main -->
+  <main class="mx-auto max-w-md px-6 pb-16">
+    <div class="text-center mt-6 mb-8">
+      <h1 class="text-3xl sm:text-4xl font-extrabold">Bienvenue</h1>
+      <p class="text-zinc-400 mt-2 text-sm">Créez un compte ou connectez-vous pour accéder à VALTrack.</p>
+    </div>
+
+    <!-- card -->
+    <div class="glass rounded-2xl border border-white/10 p-6">
+      <!-- tabs -->
+      <div class="mb-5 grid grid-cols-2 text-sm">
+        <button id="tab-login" class="py-2 rounded-xl bg-white/10">Se connecter</button>
+        <button id="tab-register" class="py-2 rounded-xl text-zinc-300 hover:bg-white/5">Créer un compte</button>
+      </div>
+
+      <!-- login -->
+      <form id="form-login" class="space-y-4">
+        <div>
+          <label class="text-sm text-zinc-300">Email</label>
+          <input id="login-email" type="email" required
+                 class="mt-1 w-full rounded-xl bg-white/5 border border-white/10 px-3 py-2 outline-none focus:border-white/20"/>
+        </div>
+        <div>
+          <label class="text-sm text-zinc-300">Mot de passe</label>
+          <div class="mt-1 relative">
+            <input id="login-password" type="password" required
+                   class="w-full rounded-xl bg-white/5 border border-white/10 px-3 py-2 pr-20 outline-none focus:border-white/20"/>
+            <button type="button" data-toggle="#login-password"
+                    class="abs-btn absolute right-2 top-1/2 -translate-y-1/2 text-xs px-2 py-1 rounded bg-white/10">
+              Afficher
+            </button>
+          </div>
+        </div>
+        <button class="w-full rounded-xl border border-white/10 px-4 py-3 hover:bg-white/5">Connexion</button>
+        <p id="login-feedback" class="text-sm"></p>
+      </form>
+
+      <!-- register -->
+      <form id="form-register" class="space-y-4 hidden">
+        <div>
+          <label class="text-sm text-zinc-300">Email</label>
+          <input id="reg-email" type="email" required
+                 class="mt-1 w-full rounded-xl bg-white/5 border border-white/10 px-3 py-2 outline-none focus:border-white/20"/>
+        </div>
+        <div>
+          <label class="text-sm text-zinc-300">Mot de passe (min. 8)</label>
+          <div class="mt-1 relative">
+            <input id="reg-password" type="password" minlength="8" required
+                   class="w-full rounded-xl bg-white/5 border border-white/10 px-3 py-2 pr-20 outline-none focus:border-white/20"/>
+            <button type="button" data-toggle="#reg-password"
+                    class="abs-btn absolute right-2 top-1/2 -translate-y-1/2 text-xs px-2 py-1 rounded bg-white/10">
+              Afficher
+            </button>
+          </div>
+        </div>
+        <button class="w-full rounded-xl border border-white/10 px-4 py-3 hover:bg-white/5">Créer le compte</button>
+        <p id="reg-feedback" class="text-sm"></p>
+      </form>
+
+      <p class="mt-5 text-[11px] text-zinc-400 leading-relaxed">
+        En créant un compte, vous acceptez que VALTrack stocke un jeton de session pour vous connecter.
+        Projet non affilié à Riot Games.
+      </p>
+    </div>
+  </main>
+
+  <script>
+    function getCookie(name) { return document.cookie.split('; ').reduce((acc, v) => { const [k, val] = v.split('='); return k === name ? decodeURIComponent(val) : acc; }, null); }
+    function getSessionToken(){ return localStorage.getItem('session_token') || getCookie('session_token'); }
+
+
+    // --- helpers ---
+    const $ = s => document.querySelector(s);
+    function setMsg(el, msg, ok=false){
+      el.textContent = msg || "";
+      el.className = "text-sm " + (msg ? (ok ? "text-emerald-400" : "text-rose-400") : "text-sm");
+    }
+    function saveSession(token){
+      try { localStorage.setItem("session_token", token); } catch(e){}
+      document.cookie = "session_token="+encodeURIComponent(token)+"; Path=/; SameSite=Lax";
+    }
+    function authHeader(){
+      const t = localStorage.getItem("session_token");
+      return t ? { "Authorization": "Session " + t } : {};
+    }
+    function togglePwd(btn){
+      const input = document.querySelector(btn.dataset.toggle);
+      const isText = input.type === "text";
+      input.type = isText ? "password" : "text";
+      btn.textContent = isText ? "Afficher" : "Masquer";
+    }
+
+    // show/hide tabs
+    const tabLogin = $("#tab-login"), tabReg = $("#tab-register");
+    const fLogin = $("#form-login"), fReg = $("#form-register");
+    tabLogin.onclick = () => {
+      tabLogin.classList.add("bg-white/10");
+      tabReg.classList.remove("bg-white/10");
+      fLogin.classList.remove("hidden");
+      fReg.classList.add("hidden");
+    };
+    tabReg.onclick = () => {
+      tabReg.classList.add("bg-white/10");
+      tabLogin.classList.remove("bg-white/10");
+      fReg.classList.remove("hidden");
+      fLogin.classList.add("hidden");
+    };
+
+    // password toggles
+    document.querySelectorAll(".abs-btn").forEach(b => b.addEventListener("click", ()=>togglePwd(b)));
+
+    // register
+    fReg.addEventListener("submit", async (e)=>{
+      e.preventDefault();
+      const email = $("#reg-email").value.trim();
+      const password = $("#reg-password").value;
+      const fb = $("#reg-feedback");
+      setMsg(fb, "Création…", true);
+      try{
+        const r = await fetch("/auth/register", {
+          method: "POST",
+          headers: {"Content-Type":"application/json"},
+          body: JSON.stringify({email, password})
+        });
+        if(!r.ok){
+          const d = await r.json().catch(()=>({detail:"Erreur"}));
+          setMsg(fb, d.detail || "Impossible de créer ce compte");
+          return;
+        }
+        setMsg(fb, "Compte créé. Vous pouvez vous connecter.", true);
+        tabLogin.click();
+        $("#login-email").value = email;
+      }catch(err){
+        setMsg(fb, "Erreur réseau");
+      }
+    });
+
+    // login
+    fLogin.addEventListener("submit", async (e)=>{
+      e.preventDefault();
+      const email = $("#login-email").value.trim();
+      const password = $("#login-password").value;
+      const fb = $("#login-feedback");
+      setMsg(fb, "Connexion…", true);
+      try{
+        const r = await fetch("/auth/login", {
+          method: "POST",
+          headers: {"Content-Type":"application/json"},
+          body: JSON.stringify({email, password})
+        });
+        const d = await r.json().catch(()=>null);
+        if(!r.ok || !d?.session_token){
+          setMsg(fb, (d && d.detail) || "Identifiants invalides");
+          return;
+        }
+        saveSession(d.session_token);
+        setMsg(fb, "Connecté ! Redirection…", true);
+        // exemple: vers /app (protégé côté serveur via require_user)
+        setTimeout(()=>{ window.location.href = "/app"; }, 400);
+      }catch(err){
+        setMsg(fb, "Erreur réseau");
+      }
+    });
+
+    // si déjà connecté, on peut rediriger:
+    (async ()=>{
+      const t = localStorage.getItem("session_token");
+      if(!t) return;
+      // Optionnel: ping un endpoint protégé pour vérifier
+      const ok = await fetch("/valorant/get_wallet", {headers: authHeader()});
+      if (ok.status !== 401) window.location.href = "/app";
+    })();
+  </script>
+</body>
+</html>

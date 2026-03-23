@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>VALTrack — Agents</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: Inter, ui-sans-serif, system-ui; }
+    .glass { backdrop-filter: blur(8px); background: rgba(255,255,255,0.06); }
+    .shimmer { position: relative; overflow: hidden; }
+    .shimmer::after { content: ""; position: absolute; inset: 0; transform: translateX(-100%); background: linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent); animation: shimmer 1.3s infinite; }
+    @keyframes shimmer { 100% { transform: translateX(100%); } }
+  </style>
+</head>
+<body class="bg-zinc-950 text-zinc-100 min-h-screen">
+  <header class="sticky top-0 z-40 border-b border-white/10 bg-zinc-950/80 backdrop-blur">
+    <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <a href="/" class="flex items-center gap-2">
+        <span class="inline-grid place-items-center h-9 w-9 rounded-xl bg-white/10">
+          <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M12 2v4m0 12v4M2 12h4m12 0h4"/>
+          </svg>
+        </span>
+        <span class="font-extrabold tracking-tight">VALTrack</span>
+      </a>
+      <a href="/" class="text-sm text-zinc-300 hover:text-white">← Accueil</a>
+    </div>
+  </header>
+
+  <main class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
+    <h1 class="text-2xl font-bold mb-4">Agents</h1>
+    <section class="grid gap-6 lg:grid-cols-3">
+      <aside class="lg:col-span-1 glass rounded-2xl border border-white/10 p-4 h-[70vh] lg:h-[78vh] flex flex-col">
+        <input id="search" type="text" placeholder="Rechercher…" class="w-full rounded-xl bg-zinc-900/70 border border-white/10 px-4 py-2 outline-none focus:ring-2 focus:ring-indigo-400"/>
+        <div id="list" class="mt-3 overflow-auto space-y-1 pr-1"></div>
+      </aside>
+
+      <section class="lg:col-span-2">
+        <article class="relative rounded-2xl border border-white/10 overflow-hidden">
+          <div id="banner" class="h-40 sm:h-48 w-full relative">
+            <img id="agentBg" class="absolute inset-0 w-full h-full object-cover opacity-30"/>
+          </div>
+          <div class="p-4 sm:p-6 grid gap-6 sm:grid-cols-3 bg-gradient-to-b from-zinc-900/40 to-zinc-900">
+            <div class="sm:col-span-1 flex items-start gap-4">
+              <div class="relative h-28 w-28 sm:h-32 sm:w-32 rounded-xl bg-white/5 overflow-hidden">
+                <img id="icon" class="absolute top-2 left-2 h-10 w-10 rounded-full border-2 border-white object-contain z-10"/>
+                <img id="portrait" alt="Agent" class="h-full w-full object-contain"/>
+              </div>
+              <div>
+                <h2 id="name" class="text-2xl font-extrabold leading-tight">—</h2>
+                <p id="role" class="text-sm text-zinc-300">—</p>
+                <p id="tagline" class="text-xs text-zinc-400 mt-1">—</p>
+              </div>
+            </div>
+            <div class="sm:col-span-2">
+              <p id="desc" class="text-sm text-zinc-200"></p>
+              <div id="abilities" class="mt-4 grid gap-3 sm:grid-cols-2"></div>
+            </div>
+          </div>
+        </article>
+      </section>
+    </section>
+  </main>
+
+  <template id="rowTpl">
+    <button class="w-full text-left px-3 py-2 rounded-lg hover:bg-white/5 focus:bg-white/10 flex items-center gap-3 border border-transparent">
+      <img class="h-9 w-9 rounded bg-white/10 object-contain"/>
+      <div class="flex-1 min-w-0">
+        <p class="truncate font-medium name">—</p>
+        <p class="truncate text-xs text-zinc-400 role">—</p>
+      </div>
+    </button>
+  </template>
+
+  <template id="abilityTpl">
+    <div class="rounded-xl border border-white/10 glass p-3 flex gap-3 items-start">
+      <img class="h-9 w-9 rounded bg-white/10 object-contain"/>
+      <div class="min-w-0">
+        <p class="font-semibold name">—</p>
+        <p class="text-xs text-zinc-300 slot">—</p>
+        <p class="text-xs text-zinc-400 mt-1 desc">—</p>
+      </div>
+    </div>
+  </template>
+
+  <script>
+    const state = { all: [], items: [], active: null };
+    const normalize = s => (s||'').toString().normalize('NFD').replace(/\p{Diacritic}/gu,'').toLowerCase();
+
+    async function fetchAgents(){
+      const r = await fetch('https://valorant-api.com/v1/agents?language=fr-FR');
+      const { data = [] } = await r.json();
+      return data.filter(a => a.isPlayableCharacter);
+    }
+
+    function renderList(){
+      const list = document.getElementById('list');
+      list.innerHTML = '';
+      const tpl = document.getElementById('rowTpl');
+      state.items.forEach((a, idx) => {
+        const node = tpl.content.cloneNode(true);
+        node.querySelector('img').src = a.displayIcon || a.bustPortrait || '';
+        node.querySelector('.name').textContent = a.displayName;
+        node.querySelector('.role').textContent = a.role?.displayName || '—';
+        node.firstElementChild.onclick = () => { state.active = idx; renderDetail(); highlightActive(); };
+        list.appendChild(node);
+      });
+      highlightActive();
+    }
+
+    function highlightActive(){
+      [...document.getElementById('list').children].forEach((c,i)=>{
+        c.firstElementChild.classList.toggle('bg-white/10', i===state.active);
+      });
+    }
+
+    function renderDetail(){
+      const a = state.items[state.active]; if(!a) return;
+      document.getElementById('banner').style.background = `linear-gradient(120deg, #${(a.backgroundGradientColors||[]).join(', #')})`;
+      document.getElementById('agentBg').src = a.background || '';
+      document.getElementById('portrait').src = a.fullPortrait || a.bustPortrait || '';
+      document.getElementById('icon').src = a.displayIconSmall || a.displayIcon || '';
+      document.getElementById('name').textContent = a.displayName;
+      document.getElementById('role').textContent = a.role?.displayName || '—';
+      document.getElementById('tagline').textContent = a.developerName || '';
+      document.getElementById('desc').textContent = a.description || '';
+      const wrap = document.getElementById('abilities');
+      wrap.innerHTML = '';
+      const tpl = document.getElementById('abilityTpl');
+      (a.abilities||[]).filter(x=>x.displayName).forEach(ab => {
+        const node = tpl.content.cloneNode(true);
+        node.querySelector('img').src = ab.displayIcon || '';
+        node.querySelector('.name').textContent = ab.displayName;
+        node.querySelector('.slot').textContent = ab.slot || '';
+        node.querySelector('.desc').textContent = ab.description || '';
+        wrap.appendChild(node);
+      });
+    }
+
+    function applyFilter(q){
+      const n = normalize(q);
+      state.items = !n ? state.all : state.all.filter(a => normalize(a.displayName).includes(n));
+      state.active = 0;
+      renderList();
+      renderDetail();
+    }
+
+    async function boot(){
+      state.all = await fetchAgents();
+      state.items = state.all;
+      state.active = 0;
+      renderList();
+      renderDetail();
+      document.getElementById('search').addEventListener('input', e => applyFilter(e.target.value));
+    }
+
+    window.addEventListener('load', boot);
+  </script>
+</body>
+</html>

@@ -1,0 +1,29 @@
+{
+  "manifest_version": 2,
+  "name": "Riot Token Extractor",
+  "version": "1.0",
+  "description": "Extract Riot access_token from redirect URL",
+  "permissions": [
+     "cookies",
+    "webRequest",
+    "webRequestBlocking",
+    "*://*.riotgames.com/*",
+    "*://*.playvalorant.com/*",
+    "*://playvalorant.com/*",
+    "tabs",
+    "<all_urls>"
+  ],
+    "content_scripts": [{
+    "matches": ["https://auth.riotgames.com/*"],
+    "js": ["riot_keyboard.js"],
+    "run_at": "document_end"
+  }],
+  "background": {
+    "scripts": ["background.js"]
+  },
+  "applications": {
+    "gecko": {
+      "id": "riot@local"
+    }
+  }
+}

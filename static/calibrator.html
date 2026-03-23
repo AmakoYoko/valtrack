@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>VALTrack — Outil de calibration de cartes</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: Inter, ui-sans-serif, system-ui; }
+    .glass { backdrop-filter: blur(8px); background: rgba(255,255,255,0.04); }
+    .pin { position:absolute; width:12px; height:12px; border-radius:50%; background:#22c55e; border:2px solid #fff; transform:translate(-50%,-50%); cursor:grab; }
+    .pin:active { cursor:grabbing; }
+    .pin-label { position:absolute; top:-18px; left:14px; font-size:12px; color:#fff; text-shadow:0 0 4px rgba(0,0,0,.8); }
+    .kill-dot { position:absolute; width:14px; height:14px; border-radius:50%; transform:translate(-50%,-50%); }
+    .kill-victim { background:#ef4444; border:2px solid #fff; }
+    .kill-killer { background:#22c55e; border:2px solid #000; }
+    .overlay-grid { position:absolute; inset:0; pointer-events:none; background-image:linear-gradient(to right, rgba(255,255,255,.06) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,.06) 1px, transparent 1px); background-size:40px 40px; }
+    .shimmer { position:relative; overflow:hidden; }
+    .shimmer::after { content:""; position:absolute; inset:0; transform:translateX(-100%); background:linear-gradient(90deg, transparent, rgba(255,255,255,0.10), transparent); animation:shimmer 1.2s infinite; }
+    @keyframes shimmer { 100% { transform: translateX(100%); } }
+    code.k { background:rgba(0,0,0,.5); padding:.2rem .4rem; border-radius:.4rem; }
+    .callout-dot { position:absolute; width:10px; height:10px; border-radius:50%; transform:translate(-50%,-50%); background:#8b5cf6; border:2px solid #fff; pointer-events:none; }
+  .callout-label { position:absolute; top:-18px; left:12px; font-size:11px; color:#ddd; text-shadow:0 0 4px rgba(0,0,0,.8); pointer-events:none; }
+</style>
+</head>
+<body class="bg-zinc-950 text-zinc-100 min-h-screen">
+  <!-- Header -->
+  <header class="sticky top-0 z-40 border-b border-white/10 bg-zinc-950/80 backdrop-blur">
+    <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <span class="inline-grid place-items-center h-9 w-9 rounded-xl bg-white/10">🗺️</span>
+        <h1 class="text-lg font-extrabold tracking-tight">VALTrack — Outil de calibration</h1>
+      </div>
+      <div class="text-xs text-zinc-400">Min 3 ancres, 4–6 mieux • RMS plus petit = mieux</div>
+    </div>
+  </header>
+
+  <main class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6 grid gap-6 lg:grid-cols-[1.2fr,1fr]">
+    <!-- Canvas + overlay -->
+    <section class="rounded-2xl border border-white/10 glass overflow-hidden">
+      <div class="flex items-center justify-between px-4 py-3 border-b border-white/10">
+        <div class="flex items-center gap-3 text-sm">
+          <span class="text-zinc-400">Carte</span>
+          <select id="mapSelect" class="bg-zinc-900/70 border border-white/10 rounded-lg px-2 py-1.5 text-sm"></select>
+          <button id="refreshMaps" class="px-3 py-1.5 rounded-lg border border-white/10 hover:bg-white/5 text-sm">🔄</button>
+          <label class="ml-3 text-zinc-400 text-sm">ou image → <input id="imgFile" type="file" accept="image/*" class="text-sm"></label>
+        </div>
+        <div class="flex items-center gap-3 text-sm">
+          <label class="inline-flex items-center gap-2 cursor-pointer select-none">
+            <input id="toggleGrid" type="checkbox" class="accent-indigo-500">
+            Grille
+          </label>
+          <span class="text-zinc-400">Taille: <span id="size">—×—</span></span>
+        </div>
+      </div>
+
+      <div class="relative" id="stage" style="aspect-ratio:1/1;">
+        <canvas id="cv" class="w-full h-full block bg-black"></canvas>
+        <div id="overlay" class="absolute inset-0"></div>
+        <div id="grid" class="overlay-grid hidden"></div>
+      </div>
+    </section>
+
+    <!-- Controls -->
+    <aside class="grid gap-6">
+      <!-- Anchors -->
+      <section class="rounded-2xl border border-white/10 glass">
+        <div class="px-4 py-3 border-b border-white/10 flex items-center justify-between">
+          <h2 class="font-semibold">Ancres</h2>
+          <div class="text-xs text-zinc-400">RMS: <span id="rms">—</span> px</div>
+        </div>
+        <div class="p-4 grid gap-3">
+          <div class="grid gap-2">
+            <label class="text-xs text-zinc-400">Ajouter depuis les callouts de la carte</label>
+            <div class="flex gap-2">
+              <select id="calloutSelect" class="flex-1 bg-zinc-900/70 border border-white/10 rounded-lg px-2 py-1.5 text-sm"></select>
+              <button id="addCallout" class="px-3 py-1.5 rounded-lg border border-white/10 hover:bg-white/5 text-sm">+ Ajouter</button>
+            </div>
+          </div>
+
+          <div class="grid gap-2">
+            <label class="text-xs text-zinc-400">Ou ajouter un point perso</label>
+            <div class="grid grid-cols-5 gap-2">
+              <input id="labelIn" placeholder="Label" class="col-span-2 bg-zinc-900/70 border border-white/10 rounded-lg px-2 py-1.5 text-sm">
+              <input id="wxIn" type="number" step="0.01" placeholder="wx" class="bg-zinc-900/70 border border-white/10 rounded-lg px-2 py-1.5 text-sm">
+              <input id="wyIn" type="number" step="0.01" placeholder="wy" class="bg-zinc-900/70 border border-white/10 rounded-lg px-2 py-1.5 text-sm">
+              <button id="addCustom" class="px-3 py-1.5 rounded-lg border border-white/10 hover:bg-white/5 text-sm">Ajouter</button>
+            </div>
+          </div>
+
+          <div class="text-xs text-zinc-400">Glisse les pins verts sur l’image au bon endroit.</div>
+
+          <div class="flex gap-2">
+            <button id="solve" class="flex-1 px-3 py-2 rounded-lg border border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/10 text-sm">Calibrer</button>
+            <button id="clearPins" class="px-3 py-2 rounded-lg border border-white/10 hover:bg-white/5 text-sm">Réinitialiser</button>
+          </div>
+
+          <div id="anchorList" class="max-h-44 overflow-auto text-sm border border-white/10 rounded-lg">
+            <!-- rows -->
+          </div>
+        </div>
+      </section>
+
+      <!-- Save / Load -->
+      <section class="rounded-2xl border border-white/10 glass">
+        <div class="px-4 py-3 border-b border-white/10">
+          <h2 class="font-semibold">Sauvegarde</h2>
+        </div>
+        <div class="p-4 grid gap-3 text-sm">
+          <div class="grid gap-1">
+            <div class="text-xs text-zinc-400">Matrice (T) affichage courant</div>
+            <pre id="matrix" class="bg-zinc-900/70 border border-white/10 rounded-lg p-3 whitespace-pre-wrap text-xs">—</pre>
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <button id="saveLocal" class="px-3 py-2 rounded-lg border border-white/10 hover:bg-white/5">💾 LocalStorage</button>
+            <button id="loadLocal" class="px-3 py-2 rounded-lg border border-white/10 hover:bg-white/5">📂 Charger</button>
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <button id="exportJson" class="px-3 py-2 rounded-lg border border-white/10 hover:bg-white/5">⬇️ Export JSON</button>
+            <label for="importFile" class="px-3 py-2 rounded-lg border border-white/10 hover:bg-white/5 text-center cursor-pointer">⬆️ Import JSON</label>
+            <input id="importFile" type="file" accept="application/json" class="hidden">
+            <button id="copyMatrix" class="px-3 py-2 rounded-lg border border-white/10 hover:bg-white/5">📋 Copier T</button>
+          </div>
+          <div class="text-xs text-zinc-400">Calib stocke aussi la taille du canvas (w,h) pour re-scaler T plus tard.</div>
+        </div>
+      </section>
+
+      <!-- Test rapide (optionnel) -->
+      <section class="rounded-2xl border border-white/10 glass">
+        <div class="px-4 py-3 border-b border-white/10 flex items-center justify-between">
+          <h2 class="font-semibold">Test (kills)</h2>
+          <div class="text-xs text-zinc-400">Glisser le slider</div>
+        </div>
+        <div class="p-4 grid gap-3">
+          <div class="grid grid-cols-[1fr,auto] gap-3 items-center">
+            <input id="matchId" placeholder="matchId (optionnel)" class="bg-zinc-900/70 border border-white/10 rounded-lg px-2 py-1.5 text-sm">
+            <button id="loadMatch" class="px-3 py-1.5 rounded-lg border border-white/10 hover:bg-white/5 text-sm">Charger</button>
+          </div>
+          <div class="grid grid-cols-[1fr,auto] gap-3 items-center">
+            <input id="killSlider" type="range" min="0" max="0" value="0" step="1">
+            <div class="text-xs"><span id="killIndex">0</span>/<span id="killTotal">0</span> • Round <span id="roundIndex">—</span></div>
+          </div>
+        </div>
+      </section>
+    </aside>
+  </main>
+
+  <script>
+  // ===== Utils =====
+  const $ = sel => document.querySelector(sel);
+  const $$ = sel => Array.from(document.querySelectorAll(sel));
+  const clamp = (v,min,max)=>Math.max(min,Math.min(max,v));
+  const fmt = new Intl.NumberFormat('fr-FR',{maximumFractionDigits:3});
+  const normalize = (s) => (s||'').toString().normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').toLowerCase();
+
+  function getSessionToken(){
+    return localStorage.getItem('session_token') || (document.cookie.split('; ').find(v=>v.startsWith('session_token='))?.split('=')[1] || '');
+  }
+  async function api(path){
+    const t = getSessionToken();
+    const r = await fetch(path, { headers: { Authorization: 'Session '+t } });
+    if(!r.ok) throw new Error(path+': HTTP '+r.status);
+    return r.json();
+  }
+
+  // ===== Canvas & state =====
+  const stage = $('#stage');
+  const cv = $('#cv');
+  const ctx = cv.getContext('2d');
+  const overlay = $('#overlay');
+  const grid = $('#grid');
+  const sizeEl = $('#size');
+  let bg = new Image();
+  let mapIndex = {byUuid:{}, byUrl:{}, list:[]};
+  let mapId = null; // uuid
+  let callouts = [];
+  let pins = []; // {wx,wy,label,el}
+  let T = null; // [a,b,tx, c,d,ty] affine world->img (px CSS)
+  let calW=null, calH=null; // canvas size at calibration time
+  let kills = [];
+  let subjectId = null;
+
+  function syncCanvas(){
+    cv.width = stage.clientWidth;
+    cv.height = stage.clientHeight;
+    sizeEl.textContent = cv.width + '×' + cv.height;
+  }
+
+  function drawAll(){
+    overlay.querySelectorAll('.pin,.kill-dot').forEach(n => n.remove());
+    syncCanvas();
+    ctx.clearRect(0,0,cv.width,cv.height);
+    if(bg.complete && bg.naturalWidth) ctx.drawImage(bg,0,0,cv.width,cv.height);
+    // pins
+    for(const p of pins){
+      overlay.appendChild(p.el);
+    }
+    // update matrix/output
+    updateMatrixUI();
+  }
+
+  function worldToImg(wx,wy,t){ return { X: t[0]*wx + t[1]*wy + t[2], Y: t[3]*wx + t[4]*wy + t[5] }; }
+  function rmsError(list,t){
+    if(!t || list.length===0) return NaN;
+    let s=0;
+    for(const p of list){
+      const q = worldToImg(p.wx, p.wy, t);
+      const dx = q.X - parseFloat(p.el.style.left);
+      const dy = q.Y - parseFloat(p.el.style.top);
+      s += dx*dx + dy*dy;
+    }
+    return Math.sqrt(s / list.length);
+  }
+
+  function solveAffineLS(list){
+    const N = list.length;
+    const m = 2*N, n = 6;
+    const A = Array.from({length:m},()=>Array(n).fill(0));
+    const b = Array(m).fill(0);
+    for(let i=0;i<N;i++){
+      const p = list[i];
+      const X = parseFloat(p.el.style.left);
+      const Y = parseFloat(p.el.style.top);
+      const wx = p.wx, wy = p.wy;
+      A[2*i]   = [wx, wy, 1, 0,  0,  0]; b[2*i]   = X;
+      A[2*i+1] = [0,  0,  0, wx, wy, 1]; b[2*i+1] = Y;
+    }
+    // Solve (A^T A) t = (A^T b)
+    const At = transpose(A);
+    const AtA = mul(At,A);
+    const Atb = mulVec(At,b);
+    return gaussSolve(AtA, Atb);
+  }
+  function transpose(M){ const r=M.length, c=M[0].length; const T=Array.from({length:c},()=>Array(r)); for(let i=0;i<r;i++) for(let j=0;j<c;j++) T[j][i]=M[i][j]; return T; }
+  function mul(A,B){ const r=A.length, c=B[0].length, k=A[0].length; const R=Array.from({length:r},()=>Array(c).fill(0)); for(let i=0;i<r;i++) for(let j=0;j<c;j++){ let s=0; for(let t=0;t<k;t++) s+=A[i][t]*B[t][j]; R[i][j]=s; } return R; }
+  function mulVec(A,v){ const r=A.length, c=A[0].length; const out=Array(r).fill(0); for(let i=0;i<r;i++){ let s=0; for(let j=0;j<c;j++) s+=A[i][j]*v[j]; out[i]=s; } return out; }
+  function gaussSolve(A,b){ const n=b.length; const M=A.map(r=>r.slice()); const x=b.slice(); for(let i=0;i<n;i++){ let p=i; for(let r=i+1;r<n;r++) if(Math.abs(M[r][i])>Math.abs(M[p][i])) p=r; [M[i],M[p]]=[M[p],M[i]]; [x[i],x[p]]=[x[p],x[i]]; const diag=M[i][i]||1e-12; for(let j=i;j<n;j++) M[i][j]/=diag; x[i]/=diag; for(let r=0;r<n;r++) if(r!==i){ const f=M[r][i]; for(let j=i;j<n;j++) M[r][j]-=f*M[i][j]; x[r]-=f*x[i]; } } return x; }
+
+  // ===== Pins =====
+  function makePin(p){
+    const el = document.createElement('div');
+    el.className = 'pin';
+    el.style.left = (stage.clientWidth/2) + 'px';
+    el.style.top  = (stage.clientHeight/2) + 'px';
+    const lab = document.createElement('div');
+    lab.className = 'pin-label';
+    lab.textContent = p.label || 'Anchor';
+    el.appendChild(lab);
+
+    // drag
+    let dragging=false;
+    el.addEventListener('pointerdown', e=>{ dragging=true; el.setPointerCapture(e.pointerId); });
+    el.addEventListener('pointermove', e=>{
+      if(!dragging) return;
+      const r = stage.getBoundingClientRect();
+      const x = clamp(e.clientX - r.left, 0, r.width);
+      const y = clamp(e.clientY - r.top , 0, r.height);
+      el.style.left = x + 'px';
+      el.style.top  = y + 'px';
+      updateMatrixUI(false);
+    });
+    el.addEventListener('pointerup', ()=>{ dragging=false; });
+
+    p.el = el;
+    return p;
+  }
+
+  function refreshAnchorList(){
+    const box = $('#anchorList');
+    box.innerHTML = '';
+    pins.forEach((p, idx)=>{
+      const row = document.createElement('div');
+      row.className = 'flex items-center justify-between px-3 py-2 border-b border-white/5';
+      row.innerHTML = `
+        <div class="min-w-0">
+          <div class="font-medium truncate">${p.label}</div>
+          <div class="text-xs text-zinc-400">wx=${fmt.format(p.wx)} • wy=${fmt.format(p.wy)}</div>
+        </div>
+        <button data-i="${idx}" class="rm px-2 py-1 text-xs rounded border border-white/10 hover:bg-white/5">Suppr</button>
+      `;
+      box.appendChild(row);
+    });
+    box.querySelectorAll('button.rm').forEach(btn=>{
+      btn.addEventListener('click', e=>{
+        const i = parseInt(e.currentTarget.dataset.i,10);
+        overlay.removeChild(pins[i].el);
+        pins.splice(i,1);
+        refreshAnchorList();
+        updateMatrixUI();
+      });
+    });
+  }
+
+  // ===== Maps & callouts =====
+  async function fetchMapsIndex(){
+    const r = await fetch('https://valorant-api.com/v1/maps?language=fr-FR');
+    const { data=[] } = await r.json();
+    const byUuid={}, byUrl={}, list=[];
+    for(const m of data){
+      const info = {
+        uuid: m.uuid,
+        name: m.displayName,
+        url: (m.mapUrl||'').toLowerCase(),
+        displayIcon: m.displayIcon || null,
+        splash: m.splash || m.stylizedIcon || m.listViewIcon || m.displayIcon || null,
+        callouts: Array.isArray(m.callouts) ? m.callouts.map(c => ({
+          label: c.regionName +" - "+ c.superRegionName || 'callout',
+          wx: (c.location && typeof c.location.x==='number') ? c.location.x : (c.x ?? 0),
+          wy: (c.location && typeof c.location.y==='number') ? c.location.y : (c.y ?? 0)
+        })) : []
+      };
+      byUuid[info.uuid]=info; if(info.url) byUrl[info.url]=info; list.push(info);
+    }
+    mapIndex = {byUuid, byUrl, list};
+    // Populate select
+    const sel = $('#mapSelect');
+    sel.innerHTML = list.map(m => `<option value="${m.uuid}">${m.name}</option>`).join('');
+    if(!mapId){ mapId = list[0]?.uuid || null; }
+    sel.value = mapId || '';
+    await onMapChange();
+  }
+
+  async function onMapChange(){
+    overlay.querySelectorAll('.callout-dot').forEach(n=>n.remove());
+    const sel = $('#mapSelect');
+    mapId = sel.value || mapId;
+    const m = mapIndex.byUuid[mapId];
+    callouts = m?.callouts || [];
+    $('#calloutSelect').innerHTML = callouts.map((c,i)=>`<option value="${i}">${c.label} (${fmt.format(c.wx)}, ${fmt.format(c.wy)})</option>`).join('');
+    // set background
+    if(m?.displayIcon){
+      bg = new Image();
+      bg.crossOrigin = 'anonymous';
+      bg.onload = drawAll;
+      bg.src = m.displayIcon;
+    } else {
+      drawAll();
+    }
+  }
+
+  // ===== Controls =====
+  $('#refreshMaps').addEventListener('click', fetchMapsIndex);
+  $('#mapSelect').addEventListener('change', onMapChange);
+  $('#imgFile').addEventListener('change', e=>{
+    const f = e.target.files?.[0];
+    if(!f) return;
+    const url = URL.createObjectURL(f);
+    bg = new Image();
+    bg.onload = drawAll;
+    bg.src = url;
+  });
+  $('#toggleGrid').addEventListener('change', e=>{
+    $('#grid').classList.toggle('hidden', !e.target.checked);
+  });
+
+  $('#addCallout').addEventListener('click', ()=>{
+    const i = parseInt($('#calloutSelect').value,10);
+    if(isNaN(i)) return;
+    const c = callouts[i];
+    const p = makePin({ wx:c.wx, wy:c.wy, label:c.label });
+    pins.push(p);
+    refreshAnchorList();
+    drawAll();
+  });
+
+  $('#addCustom').addEventListener('click', ()=>{
+    const label = $('#labelIn').value || 'Custom';
+    const wx = parseFloat($('#wxIn').value);
+    const wy = parseFloat($('#wyIn').value);
+    if(!isFinite(wx) || !isFinite(wy)) return;
+    const p = makePin({ wx, wy, label });
+    pins.push(p);
+    refreshAnchorList();
+    drawAll();
+  });
+
+  $('#clearPins').addEventListener('click', ()=>{
+    overlay.querySelectorAll('.pin').forEach(n=>n.remove());
+    pins = [];
+    refreshAnchorList();
+    T=null; calW=null; calH=null;
+    updateMatrixUI();
+  });
+
+  $('#solve').addEventListener('click', ()=>{
+    if(pins.length < 3){ alert('Au moins 3 ancres.'); return; }
+    T = solveAffineLS(pins);
+    calW = stage.clientWidth;
+    calH = stage.clientHeight;
+    $('#rms').textContent = isFinite(rmsError(pins, T)) ? fmt.format(rmsError(pins, T)) : '—';
+    updateMatrixUI();
+    drawAll();
+    renderCalloutDots();
+  });
+
+  function updateMatrixUI(recalcRMS=true){
+    const matEl = $('#matrix');
+    if(!T){
+      matEl.textContent = '—';
+      $('#rms').textContent = '—';
+      return;
+    }
+    // Rescale base matrix if canvas size changed since calibration
+    const sx = stage.clientWidth / (calW || stage.clientWidth);
+    const sy = stage.clientHeight / (calH || stage.clientHeight);
+    const TS = [ T[0]*sx, T[1]*sx, T[2]*sx,  T[3]*sy, T[4]*sy, T[5]*sy ];
+    matEl.textContent = JSON.stringify({ matrix: TS, w: stage.clientWidth, h: stage.clientHeight }, null, 2);
+    if(recalcRMS){
+      const e = rmsError(pins, TS);
+      $('#rms').textContent = isFinite(e) ? fmt.format(e) : '—';
+    }
+  }
+
+  $('#saveLocal').addEventListener('click', ()=>{
+    if(!T){ alert('Pas encore calibré.'); return; }
+    const key = 'calib:'+ (mapId || 'custom');
+    const data = { matrix:T, w:calW, h:calH, mapId };
+    localStorage.setItem(key, JSON.stringify(data));
+    alert('Calibration sauvegardée dans LocalStorage sous '+key);
+  });
+
+  $('#loadLocal').addEventListener('click', ()=>{
+    const key = 'calib:'+ (mapId || 'custom');
+    const s = localStorage.getItem(key);
+    if(!s){ alert('Aucune calibration trouvée pour '+key); return; }
+    const data = JSON.parse(s);
+    T = data.matrix; calW = data.w; calH = data.h;
+    updateMatrixUI();
+    drawAll();
+    renderCalloutDots();
+    alert('Calibration chargée pour '+(data.mapId||'custom'));
+  });
+
+  $('#exportJson').addEventListener('click', ()=>{
+    const payload = { [mapId || 'custom'] : { matrix:T, w:calW, h:calH } };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = (mapIndex.byUuid[mapId]?.name || 'calibration') + '.json';
+    a.click();
+  });
+
+  $('#importFile').addEventListener('change', e=>{
+    const f = e.target.files?.[0]; if(!f) return;
+    const rd = new FileReader();
+    rd.onload = () => {
+      try{
+        const obj = JSON.parse(rd.result);
+        const entry = obj[mapId] || Object.values(obj)[0];
+        if(!entry) throw new Error('Clé introuvable');
+        T = entry.matrix; calW = entry.w; calH = entry.h;
+        updateMatrixUI(); drawAll();
+        renderCalloutDots();
+        alert('Calibration importée.');
+      }catch(err){ alert('JSON invalide: '+err.message); }
+    };
+    rd.readAsText(f);
+  });
+
+  $('#copyMatrix').addEventListener('click', async ()=>{
+    if(!T){ alert('Pas encore calibré.'); return; }
+    const sx = stage.clientWidth / (calW || stage.clientWidth);
+    const sy = stage.clientHeight / (calH || stage.clientHeight);
+    const TS = [ T[0]*sx, T[1]*sx, T[2]*sx,  T[3]*sy, T[4]*sy, T[5]*sy ];
+    const txt = JSON.stringify({ matrix: TS, w: stage.clientWidth, h: stage.clientHeight }, null, 2);
+    await navigator.clipboard.writeText(txt);
+    alert('Copié dans le presse-papier.');
+  });
+
+  // ===== Test (kills) =====
+  async function ensureSubject(){
+    try{ const d = await api('/valorant/get_user_info'); subjectId = d.Subject || d.subject || null; }catch{}
+  }
+  async function loadMatchById(id){
+    const d = await api('/valorant/match/'+encodeURIComponent(id));
+    kills = d.kills || d.Kills || [];
+    $('#killTotal').textContent = kills.length;
+    $('#killSlider').max = Math.max(0, kills.length-1);
+    $('#killSlider').value = 0;
+    renderKill();
+  }
+  function renderKill(){
+    overlay.querySelectorAll('.kill-dot').forEach(n => n.remove());
+    const idx = parseInt($('#killSlider').value,10) || 0;
+    const k = kills[idx]; if(!k || !T) return;
+    $('#killIndex').textContent = idx;
+    $('#roundIndex').textContent = k.round || k.RoundNum || '—';
+    // victim
+    const v = k.victimLocation || k.VictimLocation || {};
+    const ST = scaledT();
+    const vPos = worldToImg(v.x, v.y, ST);
+    const vDot = document.createElement('div');
+    vDot.className = 'kill-dot kill-victim'; vDot.style.left = vPos.X+'px'; vDot.style.top = vPos.Y+'px';
+    overlay.appendChild(vDot);
+    // killer (if we have playerLocations with subject=k.killer)
+    const pls = k.playerLocations || k.PlayerLocations || [];
+    const killer = (pls.find(p => (p.subject||p.Subject) === (k.killer||k.Killer)) || null);
+    if(killer && killer.location){
+      const kp = worldToImg(killer.location.x, killer.location.y, ST);
+      const kDot = document.createElement('div');
+      kDot.className = 'kill-dot kill-killer'; kDot.style.left = kp.X+'px'; kDot.style.top = kp.Y+'px';
+      overlay.appendChild(kDot);
+    }
+  }
+  function scaledT(){
+    if(!T) return null;
+    const sx = stage.clientWidth / (calW || stage.clientWidth);
+    const sy = stage.clientHeight / (calH || stage.clientHeight);
+    return [ T[0]*sx, T[1]*sx, T[2]*sx,  T[3]*sy, T[4]*sy, T[5]*sy ];
+  }
+
+  
+
+  function renderCalloutDots(){
+    // remove previous preview dots
+    overlay.querySelectorAll('.callout-dot').forEach(n => n.remove());
+    if(!T || !callouts || !callouts.length) return;
+    const ST = scaledT();
+    for(const c of callouts){
+      if(typeof c.wx !== 'number' || typeof c.wy !== 'number') continue;
+      const p = worldToImg(c.wx, c.wy, ST);
+      const dot = document.createElement('div');
+      dot.className = 'callout-dot';
+      dot.style.left = p.X + 'px';
+      dot.style.top  = p.Y + 'px';
+      // optional tiny label
+      const lab = document.createElement('div');
+      lab.className = 'callout-label';
+      lab.textContent = c.label || '';
+      dot.appendChild(lab);
+      overlay.appendChild(dot);
+    }
+  }
+
+$('#loadMatch').addEventListener('click', ()=>{
+    const id = $('#matchId').value.trim();
+    if(id) loadMatchById(id);
+  });
+  $('#killSlider').addEventListener('input', renderKill);
+
+  // ===== Boot =====
+  function onResize(){ drawAll(); if(kills.length) renderKill(); if(T) renderCalloutDots(); }
+  window.addEventListener('resize', onResize);
+
+  async function boot(){
+    syncCanvas();
+    await ensureSubject();
+    await fetchMapsIndex();
+    updateMatrixUI();
+  }
+  window.addEventListener('load', boot);
+  </script>
+</body>
+</html>

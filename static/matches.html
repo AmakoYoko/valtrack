@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>VALTrack — Matchs (fix)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: Inter, ui-sans-serif, system-ui; }
+    .glass { backdrop-filter: blur(8px); background: rgba(255,255,255,0.06); }
+    .shimmer { position:relative; overflow:hidden; }
+    .shimmer::after { content:""; position:absolute; inset:0; transform:translateX(-100%); background:linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent); animation:shimmer 1.2s infinite; }
+    @keyframes shimmer { 100% { transform: translateX(100%); } }
+    .win { background: linear-gradient(180deg, rgba(16,185,129,.18), transparent 60%); }
+    .lose { background: linear-gradient(180deg, rgba(239,68,68,.18), transparent 60%); }
+  </style>
+</head>
+<body class="bg-zinc-950 text-zinc-100 min-h-screen">
+  <header class="sticky top-0 z-40 border-b border-white/10 bg-zinc-950/80 backdrop-blur">
+    <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <a href="/" class="flex items-center gap-2">
+        <span class="inline-grid place-items-center h-9 w-9 rounded-xl bg-white/10">
+          <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M12 2v4m0 12v4M2 12h4m12 0h4"/>
+          </svg>
+        </span>
+        <span class="font-extrabold tracking-tight">VALTrack</span>
+      </a>
+      <a href="/app" class="text-sm text-zinc-300 hover:text-white">← App</a>
+    </div>
+  </header>
+
+  <main class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6">
+    <section class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-6">
+      <div class="glass rounded-2xl border border-white/10 p-4 flex items-center gap-3">
+        <div class="h-10 w-10 rounded-lg bg-white/10 grid place-items-center"><img src="https://1000logos.net/wp-content/uploads/2022/09/Valorant-Emblem.png"></div>
+        <div>
+          <p id="playerTag" class="font-semibold">—</p>
+          <p class="text-xs text-zinc-400"><span id="regionTag">EU</span></p>
+        </div>
+      </div>
+      <div class="glass rounded-2xl border border-white/10 p-4">
+        <p class="text-sm text-zinc-400">Rang</p>
+        <div class="mt-2 flex items-center gap-3">
+          <img id="rankIcon" class="h-10 w-10 object-contain hidden" alt="Rang"/>
+          <div id="rankSkeleton" class="h-10 w-10 rounded shimmer"></div>
+          <div>
+            <p id="rankName" class="font-medium">—</p>
+            <p class="text-xs text-zinc-400"><span id="rr">—</span> RR</p>
+          </div>
+        </div>
+      </div>
+      <div class="glass rounded-2xl border border-white/10 p-4">
+        <p class="text-sm text-zinc-400">Winrate (liste chargée)</p>
+        <p id="winrate" class="text-xl font-bold mt-1">—</p>
+      </div>
+      <div class="glass rounded-2xl border border-white/10 p-4">
+        <p class="text-sm text-zinc-400">MMR approx.</p>
+        <p id="mmr" class="text-xl font-bold mt-1">—</p>
+      </div>
+    </section>
+
+    <section class="glass rounded-2xl border border-white/10 p-4 mb-6">
+      <div class="flex flex-col sm:flex-row sm:items-end gap-3">
+        <div class="flex-1">
+          <label class="text-xs text-zinc-400">Recherche</label>
+          <input id="q" type="text" placeholder="Map, mode, agent…" class="w-full rounded-xl bg-zinc-900/70 border border-white/10 px-4 py-2 outline-none focus:ring-2 focus:ring-indigo-400">
+        </div>
+        <div>
+          <label class="text-xs text-zinc-400">Mode</label>
+          <select id="fMode" class="w-44 rounded-xl bg-zinc-900/70 border border-white/10 px-3 py-2">
+            <option value="">Tous</option>
+            <option value="competitive">Compétitif</option>
+            <option value="unrated">Non classé</option>
+            <option value="swiftplay">Swiftplay</option>
+            <option value="deathmatch">Deathmatch</option>
+            <option value="spikerush">Spike Rush</option>
+            <option value="ggteam">Intensification</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-xs text-zinc-400">Tri</label>
+          <select id="sort" class="w-44 rounded-xl bg-zinc-900/70 border border-white/10 px-3 py-2">
+            <option value="date_desc">Du + récent</option>
+            <option value="date_asc">Du + ancien</option>
+            <option value="score_desc">Score élevé</option>
+            <option value="kda_desc">Meilleur KDA</option>
+          </select>
+        </div>
+      </div>
+    </section>
+
+    <section id="list" class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3"></section>
+    <div id="sentinel" class="h-12"></div>
+    <p id="status" class="mt-6 text-center text-sm text-zinc-400">Chargement…</p>
+  </main>
+
+  <template id="cardTpl">
+    <article class="rounded-2xl border border-white/10 glass overflow-hidden">
+      <div class="relative">
+        <div class="aspect-[21/9] bg-white/5 overflow-hidden">
+          <img class="map-img h-full w-full object-cover opacity-80" alt="Map"/>
+          <div class="skeleton h-full w-full shimmer absolute inset-0"></div>
+        </div>
+        <div class="absolute top-2 left-2 inline-flex items-center gap-2 rounded-lg bg-black/60 px-2.5 py-1 text-xs">
+          <span class="mode-name">Mode</span>
+        </div>
+        <div class="absolute top-2 right-2">
+          <span class="result badge inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-lg border">—</span>
+        </div>
+      </div>
+
+      <div class="p-4 grid grid-cols-[56px,1fr] gap-3">
+        <div class="h-14 w-14 rounded-lg bg-white/10 grid place-items-center overflow-hidden">
+          <img class="agent-img h-full w-full object-contain hidden" alt="Agent"/>
+          <div class="agent-skel h-full w-full shimmer"></div>
+        </div>
+        <div>
+          <div class="flex items-center justify-between gap-3">
+            <h3 class="truncate font-semibold map-name">Carte</h3>
+            <time class="text-xs text-zinc-400 date">—</time>
+          </div>
+          <p class="text-sm text-zinc-300"><span class="score">—</span> • <span class="duration">—</span></p>
+          <div class="mt-2 grid grid-cols-3 gap-2 text-xs">
+            <div class="rounded-lg bg-white/5 px-2 py-1"><span class="font-medium">KDA</span> <span class="kda">—</span></div>
+            <div class="rounded-lg bg-white/5 px-2 py-1"><span class="font-medium">HS%</span> <span class="hs">—</span></div>
+            <div class="rounded-lg bg-white/5 px-2 py-1"><span class="font-medium">Score</span> <span class="combat">—</span></div>
+          </div>
+          <div class="mt-3">
+            <a class="detail inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-white/10 text-sm hover:bg-white/5" target="_blank" rel="noopener">Voir détails</a>
+          </div>
+        </div>
+      </div>
+    </article>
+  </template>
+
+  <script>
+    // ===== Helpers =====
+    const $ = (s, r=document) => r.querySelector(s);
+    const fmt = new Intl.NumberFormat('fr-FR');
+    const normalize = (s) => (s||'').toString().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+    const slugify = s => normalize(s).replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'');
+    const toMinSec = ms => {
+      const n = Number(ms)||0; if(!n) return '—';
+      const m = Math.floor(n/60000), s = Math.floor((n%60000)/1000);
+      return `${m}m ${String(s).padStart(2,'0')}s`;
+    };
+
+    function getSessionToken(){
+      return localStorage.getItem('session_token') || document.cookie.split('; ').find(v=>v.startsWith('session_token='))?.split('=')[1];
+    }
+    async function api(path, opt = {}){
+      const t = getSessionToken();
+      if(!t) throw new Error('No session token');
+      const r = await fetch(path, { ...opt, headers: { ...(opt.headers||{}), Authorization: `Session ${t}` }, credentials:'include' });
+      if(!r.ok) throw new Error(`${path}: ${r.status}`);
+      const ct = r.headers.get('content-type') || '';
+      return ct.includes('application/json') ? r.json() : r.text();
+    }
+
+    // ===== Indexes =====
+    let IDX = { mapsByUrl:{}, mapsByUuid:{}, agentsByUuid:{} };
+
+    async function fetchMapsIndex(){
+      try{
+        const res = await fetch('https://valorant-api.com/v1/maps?language=fr-FR');
+        const { data=[] } = await res.json();
+        const byUrl={}, byUuid={};
+        data.forEach(m=>{
+          const info = {
+            uuid: m.uuid,
+            name: m.displayName,
+            slug: slugify(m.displayName),
+            url: m.mapUrl,
+            splash: m.splash || m.stylizedIcon || m.listViewIcon || m.displayIcon || '',
+          };
+          if(info.url)  byUrl[info.url]=info;
+          if(info.uuid) byUuid[info.uuid]=info;
+        });
+        return { byUrl, byUuid };
+      }catch(e){ console.warn('maps index', e); return {byUrl:{}, byUuid:{}}; }
+    }
+
+    async function fetchAgentsIndex(){
+      try{
+        const res = await fetch('https://valorant-api.com/v1/agents?isPlayableCharacter=true&language=fr-FR');
+        const { data=[] } = await res.json();
+        return Object.fromEntries(data.map(a=>[a.uuid, { uuid:a.uuid, name:a.displayName, icon:a.displayIcon }]));
+      }catch(e){ console.warn('agents index', e); return {}; }
+    }
+
+    function modeInfo(q=''){
+      const x = (q||'').toLowerCase();
+      if(x.includes('competitive')||x==='ranked') return { slug:'competitive', label:'Compétitif' };
+      if(x.includes('swift')) return { slug:'swiftplay', label:'Swiftplay' };
+      if(x.includes('deathmatch')) return { slug:'deathmatch', label:'Deathmatch' };
+      if(x.includes('spikerush')) return { slug:'spikerush', label:'Spike Rush' };
+      if(x.includes('unrated')||x.includes('newmap')||x==='') return { slug:'unrated', label:'Non classé' };
+      if(x.includes('ggteam')) return { slug:'ggteam', label:'Intensification' };
+      return { slug:slugify(q), label:q||'Inconnu' };
+    }
+
+    // ===== Identity & Rank =====
+    let SUBJECT = '';
+    async function getIdentity(){
+      try{
+        const d = await api('/valorant/get_user_info');
+        SUBJECT = d.Subject || '';
+        $('#playerTag').textContent = d.GameName && d.TagLine ? d.GameName + '#' + d.TagLine : '—';
+        $('#regionTag').textContent = d.region || 'EU';
+      }catch(e){ console.warn('identity', e); }
+    }
+    function showRankIcon(url){
+      const img=$('#rankIcon'), sk=$('#rankSkeleton');
+      sk.classList.remove('hidden'); img.classList.add('hidden');
+      img.onload = ()=>{ sk.classList.add('hidden'); img.classList.remove('hidden'); };
+      img.onerror= ()=> sk.classList.add('hidden');
+      img.src = url||'';
+      if(img.complete && img.naturalWidth>0){ sk.classList.add('hidden'); img.classList.remove('hidden'); }
+    }
+    async function getCurrentRank(){
+      try{
+        const d = await api('/valorant/get_current_rank');
+        if(d?.info?.largeIcon) showRankIcon(d.info.largeIcon);
+        $('#rankName').textContent = d?.info?.tierName || '—';
+        $('#rr').textContent = d?.rr ?? '—';
+        $('#mmr').textContent = d?.mmr ?? '—';
+      }catch(e){ console.warn('rank', e); }
+    }
+
+    // ===== Data / state =====
+    const state = {
+      history: [], page: 0, pageSize: 10,
+      items: [], loading: false, done: false,
+      q: '', fMode: '', sort: 'date_desc'
+    };
+
+    async function loadIndexes(){
+      const [maps, agents] = await Promise.all([fetchMapsIndex(), fetchAgentsIndex()]);
+      IDX.mapsByUrl = maps.byUrl; IDX.mapsByUuid = maps.byUuid; IDX.agentsByUuid = agents;
+    }
+
+    async function fetchHistory(){
+      try{
+        const urlParams = new URLSearchParams(location.search);
+        const puuid = urlParams.get('puuid');
+        const path = puuid ? `/valorant/match_history?puuid=${encodeURIComponent(puuid)}` : '/valorant/match_history';
+        const data = await api(path);
+        state.history = Array.isArray(data?.History||data) ? (data.History||data) : (data?.history||[]);
+      }catch(e){ console.warn('history', e); state.history = []; }
+    }
+
+    async function fetchMatchDetails(id){
+      try{
+        return await api(`/valorant/match/${encodeURIComponent(id)}?shard=eu`);
+      }catch(e){ console.warn('match details', id, e); return {}; }
+    }
+
+    function ensureMillis(v){
+      const n = Number(v)||0;
+      if(n > 1e12) return n;                // already ms
+      if(n > 1e10)  return n;               // ms-ish
+      if(n > 1e9)   return n*1000;          // seconds
+      if(n > 1e6)   return n*1000;          // seconds small
+      return Date.now();
+    }
+
+    function computeHS(stats){
+      const h = stats?.headshots ?? stats?.headShots ?? 0;
+      const b = stats?.bodyshots ?? stats?.bodyShots ?? 0;
+      const l = stats?.legshots ?? stats?.legShots ?? 0;
+      const tot = h + b + l;
+      if(!tot) return '—';
+      return Math.round((h/tot)*100) + '%';
+    }
+    const kdaText = s => s ? `${s.kills??0}/${s.deaths??0}/${s.assists??0}` : '—';
+
+    function renderCard(container, base){
+      const tpl = $('#cardTpl').content.cloneNode(true);
+      const card = tpl.firstElementChild;
+      $('.mode-name', card).textContent = base.queueLabel || 'Inconnu';
+
+      const start = new Date(ensureMillis(base.gameStartMillis));
+      if(!isNaN(start)) $('.date', card).textContent = start.toLocaleString('fr-FR', {dateStyle:'short', timeStyle:'short'});
+      $('.duration', card).textContent = toMinSec(base.gameLengthMillis||0);
+      $('.map-name', card).textContent = base.mapLabel || base.mapId || '—';
+      $('.detail', card).href = `/static/matchInfo.html?id=${encodeURIComponent(base.matchId||base.id||'')}`;
+
+      // map image
+      const mapInfo = base.mapUuid ? IDX.mapsByUuid[base.mapUuid] : (IDX.mapsByUrl[base.mapId] || IDX.mapsByUuid[base.mapId] || null);
+      const mapImg = $('.map-img', card), mapSkel = $('.skeleton', card);
+      if(mapInfo?.splash){ mapImg.src = mapInfo.splash; mapImg.onload=()=>mapSkel.remove(); mapImg.onerror=()=>mapSkel.remove(); }
+      else { mapSkel.remove(); }
+
+      container.appendChild(card);
+      return card;
+    }
+
+    function pickMapInfo(mapKey){
+      if(!mapKey) return null;
+      // If it's a URL-like key (contains /Game/Maps), lookup byUrl
+      if(/\/?Game\/Maps/i.test(mapKey)) return IDX.mapsByUrl[mapKey] || null;
+      // Else try UUID
+      return IDX.mapsByUuid[mapKey] || null;
+    }
+
+    async function enrichItem(raw){
+      const id = raw.MatchID || raw.matchId || raw.id;
+      if(!id) return null;
+
+      const d = await fetchMatchDetails(id);
+      const mi = d?.matchInfo || d?.MatchInfo || d?.info || {};
+
+      const { slug:queueSlug, label:queueLabel } = modeInfo(mi.queueId || raw.QueueID || raw.queueId || '');
+
+      const base = {
+        id, matchId:id,
+        mapId: raw.mapId || raw.map || raw.MapID || mi.mapId || '',
+        gameStartMillis: ensureMillis(mi.gameStartMillis || raw.gameStart || raw.timestamp),
+        gameLengthMillis: Number(mi.gameLengthMillis || raw.duration) || 0,
+        queueSlug, queueLabel,
+      };
+
+      // Map info
+      const mapKey = mi.mapId || base.mapId;
+      const mapInfo = pickMapInfo(mapKey);
+      base.mapUuid = mapInfo?.uuid || null;
+      base.mapLabel = mapInfo?.name || base.mapId || 'Inconnu';
+      base.mapSlug  = mapInfo?.slug || slugify(base.mapLabel);
+
+      // Early render
+      const card = renderCard($('#list'), base);
+
+      try{
+        const players = d?.players || d?.Players || [];
+        const teams = d?.teams || d?.Teams || [];
+        const me = players.find(p => (p.subject||p.Subject) === SUBJECT) || players[0] || null;
+        const myTeamId = me?.teamId || me?.TeamID;
+
+        const tA = teams.find(t => (t.teamId||t.TeamID) === 'Blue') || teams[0] || {};
+        const tB = teams.find(t => (t.teamId||t.TeamID) === 'Red')  || teams[1] || {};
+        const scoreA = (tA.numPoints ?? tA.Score ?? 0) | 0;
+        const scoreB = (tB.numPoints ?? tB.Score ?? 0) | 0;
+
+        const myTeam = [tA,tB].find(t => (t.teamId||t.TeamID) === myTeamId) || null;
+        const didWin = myTeam?.won ?? myTeam?.HasWon ?? (
+          (scoreA > scoreB && (tA.teamId||tA.TeamID)===myTeamId) ||
+          (scoreB > scoreA && (tB.teamId||tB.TeamID)===myTeamId)
+        );
+
+        const stats = me?.stats || me?.Stats || null;
+        const hs = computeHS(stats);
+        const kda = kdaText(stats);
+        const combatScore = stats?.score ?? stats?.combatScore ?? null;
+        const agentUuid = me?.characterId || me?.CharacterID || null;
+
+        // Patch UI
+        $('.score', card).textContent = `${scoreA} - ${scoreB}`;
+        $('.kda', card).textContent = kda;
+        $('.hs', card).textContent = hs;
+        $('.combat', card).textContent = combatScore ? fmt.format(combatScore) : '—';
+        $('.mode-name', card).textContent = queueLabel;
+        const badge = $('.result', card);
+        if(didWin === true){ badge.textContent = 'Victoire'; badge.className = 'result inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-lg border border-emerald-500/30 text-emerald-300 bg-emerald-500/10'; card.classList.add('win'); }
+        else if(didWin === false){ badge.textContent = 'Défaite'; badge.className = 'result inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-lg border border-rose-500/30 text-rose-300 bg-rose-500/10'; card.classList.add('lose'); }
+
+        // Map splash (if not set yet)
+        const mapInfo2 = pickMapInfo(mi.mapId || base.mapUuid);
+        if(mapInfo2?.splash){
+          const mapImg = $('.map-img', card), mapSkel = $('.skeleton', card);
+          mapImg.src = mapInfo2.splash; mapImg.onload=()=>mapSkel.remove(); mapImg.onerror=()=>mapSkel.remove();
+        }
+
+        // Agent img
+        const aimg = $('.agent-img', card), sk = $('.agent-skel', card);
+        if(agentUuid && IDX.agentsByUuid[agentUuid]?.icon){
+          aimg.src = IDX.agentsByUuid[agentUuid].icon;
+          aimg.onload = ()=>{ aimg.classList.remove('hidden'); sk.remove(); };
+          aimg.onerror = ()=> sk.remove();
+        }else sk.remove();
+
+        return {
+          ...base,
+          didWin,
+          scoreText: `${scoreA} - ${scoreB}`,
+          kda, hs, combatScore,
+          agentUuid,
+        };
+      }catch(err){
+        console.warn('enrich err', err);
+        return base;
+      }
+    }
+
+    // Concurrency
+    async function enrichPage(items){
+      const limit = 3;
+      let i = 0, out = [];
+      async function worker(){
+        while(i < items.length){
+          const idx = i++; 
+          const res = await enrichItem(items[idx]).catch(()=>null);
+          out[idx] = res;
+          updateWinrate();
+        }
+      }
+      await Promise.all(Array.from({length:limit}, worker));
+      state.items.push(...out.filter(Boolean));
+      applyFilter();
+    }
+
+    function applyFilter(){
+      const q = normalize(state.q);
+      let arr = state.items.slice();
+
+      if(q){
+        arr = arr.filter(x =>
+          normalize(x.mapLabel).includes(q) ||
+          normalize(x.queueLabel).includes(q)
+        );
+      }
+      if(state.fMode){
+        arr = arr.filter(x => x.queueSlug === state.fMode);
+      }
+
+      if(state.sort==='date_desc') arr.sort((a,b)=> (b.gameStartMillis||0)-(a.gameStartMillis||0));
+      if(state.sort==='date_asc')  arr.sort((a,b)=> (a.gameStartMillis||0)-(b.gameStartMillis||0));
+      if(state.sort==='score_desc'){
+        const scoreNum = v => Number(String(v.scoreText||'0').split(/\D+/)[0])||0;
+        arr.sort((a,b)=> scoreNum(b)-scoreNum(a));
+      }
+      if(state.sort==='kda_desc'){
+        const toK = v => String(v?.kda||'0/0/0').split('/').map(n=>Number(n)||0);
+        arr.sort((a,b)=>{
+          const [ka,da,aa]=toK(a); const [kb,db,ab]=toK(b);
+          const ra = (ka+aa)/Math.max(1,da);
+          const rb = (kb+ab)/Math.max(1,db);
+          return rb-ra;
+        });
+      }
+
+      const list = $('#list');
+      const nodes = Array.from(list.children);
+      const nodeById = new Map(nodes.map(n => {
+        const href = (n.querySelector('.detail')?.href)||'';
+        const id = href ? new URL(href, location.origin).searchParams.get('id') : '';
+        return [id, n];
+      }));
+      arr.forEach(x => {
+        const n = nodeById.get(String(x.matchId||x.id||''));
+        if(n) list.appendChild(n);
+      });
+    }
+
+    function updateWinrate(){
+      const played = state.items.length;
+      if(!played){ $('#winrate').textContent = '—'; return; }
+      const wins = state.items.filter(x => x.didWin===true).length;
+      const pct = Math.round((wins/played)*100);
+      $('#winrate').textContent = `${pct}% (${wins}/${played})`;
+    }
+
+    async function loadNextPage(){
+      if(state.loading || state.done) return;
+      state.loading = true;
+      $('#status').textContent = 'Chargement…';
+      const start = state.page * state.pageSize;
+      const slice = state.history.slice(start, start + state.pageSize);
+      state.page++;
+      if(slice.length===0){ state.done = true; $('#status').textContent = 'Fin de la liste.'; return; }
+      await enrichPage(slice);
+      state.loading = false;
+      if(state.page * state.pageSize >= state.history.length){ state.done = true; $('#status').textContent = 'Fin de la liste.'; }
+      else $('#status').textContent = 'Faites défiler pour charger plus.';
+    }
+
+    function bindControls(){
+      const debounce=(fn,w=250)=>{ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a),w); }; };
+      $('#q').addEventListener('input', debounce((e)=>{ state.q = e.target.value; applyFilter(); }, 200));
+      $('#fMode').addEventListener('change', (e)=>{ state.fMode = e.target.value; applyFilter(); });
+      $('#sort').addEventListener('change', (e)=>{ state.sort = e.target.value; applyFilter(); });
+    }
+
+    function setupInfiniteScroll(){
+      const io = new IntersectionObserver((entries)=>{
+        for(const e of entries){
+          if(e.isIntersecting) loadNextPage();
+        }
+      }, { rootMargin: '400px' });
+      io.observe($('#sentinel'));
+    }
+
+    async function boot(){
+      bindControls();
+      await Promise.all([getIdentity(), getCurrentRank(), loadIndexes()]);
+      await fetchHistory();
+      setupInfiniteScroll();
+      loadNextPage();
+    }
+    window.addEventListener('load', boot);
+  </script>
+</body>
+</html>

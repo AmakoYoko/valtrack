@@ -1,0 +1,18 @@
+services:
+  novnc-firefox:
+    build: .
+    image: novnc-firefox:latest
+    environment:
+      - TZ=Europe/Paris
+      - SCREEN_WIDTH=1280
+      - SCREEN_HEIGHT=800
+      - ENABLE_REMOTE_SCALING=1   # met à 0 pour désactiver le remote scaling
+    ports:
+      - "8080:8080"   # noVNC (HTTP)
+      - "5900:5900"   # VNC (optionnel)
+    volumes:
+      - firefox_profile:/home/app/profile
+    restart: unless-stopped
+
+volumes:
+  firefox_profile:

@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>VALTrack — Profil joueur</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: Inter, ui-sans-serif, system-ui; }
+    .glass { backdrop-filter: blur(8px); background: rgba(255,255,255,0.06); }
+  </style>
+</head>
+<body class="bg-zinc-950 text-zinc-100 min-h-screen">
+  <header class="sticky top-0 z-40 border-b border-white/10 bg-zinc-950/80 backdrop-blur">
+    <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <a href="/" class="flex items-center gap-2">
+        <span class="inline-grid place-items-center h-9 w-9 rounded-xl bg-white/10">
+          <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M12 2v4m0 12v4M2 12h4m12 0h4"/>
+          </svg>
+        </span>
+        <span class="font-extrabold tracking-tight">VALTrack</span>
+      </a>
+      <a href="/" class="text-sm text-zinc-300 hover:text-white">← Accueil</a>
+    </div>
+  </header>
+
+  <main class="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+    <h1 class="text-2xl font-bold">Profil joueur</h1>
+
+    <!-- Recherche -->
+    <form id="lookupForm" class="flex flex-col sm:flex-row gap-3">
+      <input id="gameName" type="text" placeholder="GameName" class="flex-1 rounded-xl bg-zinc-900/70 border border-white/10 px-4 py-2 outline-none">
+      <input id="tagLine" type="text" placeholder="#TAG" class="w-36 rounded-xl bg-zinc-900/70 border border-white/10 px-4 py-2 outline-none">
+      <span class="text-sm self-center">ou</span>
+      <input id="puuid" type="text" placeholder="PUUID" class="flex-1 rounded-xl bg-zinc-900/70 border border-white/10 px-4 py-2 outline-none">
+      <button type="submit" class="rounded-xl bg-indigo-600 hover:bg-indigo-500 px-4 py-2 font-medium">Rechercher</button>
+    </form>
+
+    <!-- Carte profil -->
+    <section id="profile" class="hidden glass rounded-2xl border border-white/10 p-6 space-y-4">
+      <div class="grid md:grid-cols-[220px,1fr] gap-4">
+        <div class="relative bg-zinc-900/40 rounded-xl overflow-hidden min-h-[180px]">
+          <img id="playerCard" class="h-full w-full object-cover opacity-70" alt="player-card"/>
+          <img id="playerIcon" class="absolute bottom-3 left-3 h-16 w-16 rounded bg-white/10 object-cover"/>
+        </div>
+        <div class="space-y-2">
+          <div class="flex flex-wrap items-center gap-2">
+            <h2 id="playerName" class="text-xl font-extrabold">—</h2>
+            <span id="playerRegion" class="text-xs px-2 py-1 rounded bg-white/10">—</span>
+            <span id="playerLevel" class="text-xs px-2 py-1 rounded bg-white/10">Lvl —</span>
+          </div>
+          <p id="playerTitle" class="text-sm text-zinc-300">—</p>
+          <div class="flex flex-wrap gap-2 text-sm text-zinc-300">
+            <span id="playerPUUID" class="font-mono text-xs bg-white/5 px-2 py-1 rounded">PUUID: —</span>
+            <span id="lastUpdate" class="text-xs">—</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Stats -->
+    <section class="grid gap-4 md:grid-cols-3">
+      <article class="glass rounded-2xl border border-white/10 p-4">
+        <h3 class="font-semibold mb-2">Rang actuel</h3>
+        <div class="text-sm text-zinc-300 space-y-1">
+          <div>Rang: <span id="tier">—</span></div>
+          <div>RR: <span id="rr">—</span></div>
+          <div>ELO: <span id="elo">—</span></div>
+          <div>Saison: <span id="season">—</span></div>
+        </div>
+      </article>
+      <article class="glass rounded-2xl border border-white/10 p-4">
+        <h3 class="font-semibold mb-2">Sommaire récents</h3>
+        <div class="text-sm text-zinc-300 space-y-1">
+          <div>Winrate: <span id="wr">—</span></div>
+          <div>K/D/A moy.: <span id="kda">—</span></div>
+          <div>Agent le plus joué: <span id="favAgent">—</span></div>
+        </div>
+      </article>
+      <article class="glass rounded-2xl border border-white/10 p-4">
+        <h3 class="font-semibold mb-2">Pic & Actes</h3>
+        <div class="text-sm text-zinc-300 space-y-1">
+          <div>Pic rang: <span id="peakTier">—</span></div>
+          <div>Nb d'actes: <span id="acts">—</span></div>
+        </div>
+      </article>
+    </section>
+
+    <!-- Derniers matchs -->
+    <section class="space-y-3">
+      <div class="flex items-center justify-between"><h3 class="font-semibold">Derniers matchs</h3><span id="matchCount" class="text-sm text-zinc-400">—</span></div>
+      <div id="matches" class="grid gap-3 md:grid-cols-2 lg:grid-cols-3"></div>
+      <template id="matchTpl">
+        <article class="glass rounded-2xl border border-white/10 p-3">
+          <div class="flex items-center justify-between text-sm mb-2">
+            <span class="mode font-medium">—</span>
+            <span class="map text-zinc-300">—</span>
+          </div>
+          <div class="flex items-center justify-between text-sm">
+            <span class="score font-mono">—</span>
+            <span class="kda">K/D/A: —</span>
+          </div>
+        </article>
+      </template>
+    </section>
+  </main>
+
+  <script>
+    const $ = (s)=>document.querySelector(s);
+    const qs = new URLSearchParams(location.search);
+
+    async function api(path){
+      const r = await fetch(path);
+      if(!r.ok) throw new Error(`API ${path} ${r.status}`);
+      return r.json();
+    }
+
+    // ---- Backend routé (/henrik/*) ----
+    async function fetchAccount(gameName, tag){
+      return api(`/henrik/account/${encodeURIComponent(gameName)}/${encodeURIComponent(tag)}`);
+    }
+    async function fetchAccountByPUUID(puuid){
+      return api(`/henrik/account/by-puuid/${encodeURIComponent(puuid)}`);
+    }
+    async function fetchMMR(region, gameName, tag){
+      return api(`/henrik/mmr/${encodeURIComponent(region)}/${encodeURIComponent(gameName)}/${encodeURIComponent(tag)}`);
+    }
+    async function fetchMatches(region, gameName, tag, size=12){
+      return api(`/henrik/matches/${encodeURIComponent(region)}/${encodeURIComponent(gameName)}/${encodeURIComponent(tag)}?size=${size}`);
+    }
+
+    function setText(id, v){ const el = typeof id==='string'? $('#'+id) : id; if(el) el.textContent = v ?? '—'; }
+
+    function renderAccount(acc){
+      const a = acc?.data; if(!a) return;
+      setText('playerName', `${a.name} #${a.tag}`);
+      setText('playerRegion', (a.region||'—').toUpperCase());
+      setText('playerLevel', `Lvl ${a.account_level ?? '—'}`);
+      setText('playerTitle', a.title || '');
+      setText('playerPUUID', `PUUID: ${a.puuid}`);
+      // Date: accepte ISO, ms, s, ou string lisible
+      let maj = '—';
+      const raw = a.last_update_raw ?? a.last_update ?? null;
+      if(raw){
+        try{
+          let d;
+          if(typeof raw === 'number'){ d = new Date(raw > 1e12 ? raw : raw*1000); }
+          else { d = new Date(raw); }
+          maj = isNaN(d) ? String(a.last_update) : d.toLocaleString();
+        }catch{ maj = String(a.last_update||'—'); }
+      }
+      setText('lastUpdate', maj ? `MAJ: ${maj}` : '');
+      const card = a.card || {};
+      if(card.wide) $('#playerCard').src = card.wide; else $('#playerCard').removeAttribute('src');
+      const icon = card.small || card.wide || card.large;
+      if(icon) $('#playerIcon').src = icon; else $('#playerIcon').removeAttribute('src');
+      $('#profile').classList.remove('hidden');
+      return a; // renvoyer pour chainage
+    }
+
+    function renderMMR(m){
+      const d = m?.data; if(!d) return;
+      setText('tier', d.current_data?.currenttierpatched || '—');
+      setText('rr', (d.current_data?.ranking_in_tier ?? '—'));
+      setText('elo', (d.elo ?? '—'));
+      setText('season', d.current_data?.season || '—');
+      setText('peakTier', d.highest_rank?.patched_tier || '—');
+      setText('acts', (d.by_season ? Object.keys(d.by_season).length : 0));
+    }
+
+    function computeRecent(mePuuid, matches){
+      let wins=0,k=0,d=0,a=0; const agentCount=new Map();
+      for(const m of matches){
+        const pool = m.players?.all_players || m.players || [];
+        const me = pool.find(p=> p.puuid===mePuuid);
+        if(!me) continue;
+        const tKey = (me.team||'').toLowerCase();
+        if(tKey && m.teams?.[tKey]?.has_won) wins++;
+        k+=me.stats?.kills||0; d+=me.stats?.deaths||0; a+=me.stats?.assists||0;
+        const ag=me.character||me.agent||me.character_display_name; if(ag) agentCount.set(ag,(agentCount.get(ag)||0)+1);
+      }
+      const fav=[...agentCount.entries()].sort((x,y)=>y[1]-x[1])[0]?.[0]||'—';
+      const n=matches.length||1; return {wr:n?Math.round((wins/n)*100):0,k:k/n||0,d:d/n||0,a:a/n||0,fav};
+    }
+
+
+    function renderRecent(mePuuid, matches){
+      const list = matches?.data || [];
+      setText('matchCount', `${list.length} matchs`);
+      const {wr,k,d,a,fav}=computeRecent(mePuuid, list);
+      setText('wr', wr+ '%');
+      setText('kda', `${k.toFixed(1)}/${d.toFixed(1)}/${a.toFixed(1)}`);
+      setText('favAgent', fav);
+      const wrap=$('#matches'); wrap.innerHTML='';
+      const tpl=$('#matchTpl');
+      for(const m of list){
+        const n=tpl.content.cloneNode(true);
+        const meta = m.metadata||{};
+        const modeText = typeof meta.mode === 'object' ? (meta.mode?.name||'—') : (meta.mode||'—');
+        const mapText  = typeof meta.map  === 'object' ? (meta.map?.name ||'—') : (meta.map || '—');
+        n.querySelector('.mode').textContent = modeText;
+        n.querySelector('.map').textContent  = mapText;
+        const scoreA=m.teams?.red?.rounds_won ?? m.teams?.Red?.rounds_won;
+        const scoreB=m.teams?.blue?.rounds_won ?? m.teams?.Blue?.rounds_won;
+        n.querySelector('.score').textContent=(scoreA!=null&&scoreB!=null)?`${scoreA} - ${scoreB}`:'—';
+        const pool = m.players?.all_players || m.players || [];
+        const me = pool.find(p=> p.puuid===mePuuid);
+        if(me){ n.querySelector('.kda').textContent=`K/D/A: ${me.stats?.kills||0}/${me.stats?.deaths||0}/${me.stats?.assists||0}`; }
+        wrap.appendChild(n);
+      }
+    }
+
+    async function refresh(){
+      try{
+        // Résolution
+        let acc;
+        const puuid = $('#puuid').value.trim();
+        const name = $('#gameName').value.trim();
+        const tag = $('#tagLine').value.replace(/^#/, '').trim();
+        if(puuid){ acc = await fetchAccountByPUUID(puuid); }
+        else if(name && tag){ acc = await fetchAccount(name, tag); }
+        else { alert('Renseigne GameName#Tag OU un PUUID.'); return; }
+        const a = renderAccount(acc);
+        // MMR + matchs
+        const mmr = await fetchMMR(a.region, a.name, a.tag); renderMMR(mmr);
+        const matches = await fetchMatches(a.region, a.name, a.tag, 12); renderRecent(a.puuid, matches);
+      }catch(e){ console.warn(e); alert('Impossible de charger le profil.'); }
+    }
+
+    // Formulaire
+    $('#lookupForm').addEventListener('submit', (e)=>{ e.preventDefault(); refresh(); });
+
+    // Auto-load via query
+    if(qs.get('puuid') || (qs.get('name') && qs.get('tag'))){
+      $('#gameName').value = qs.get('name')||'';
+      $('#tagLine').value = qs.get('tag')||'';
+      $('#puuid').value = qs.get('puuid')||'';
+      refresh();
+    }
+  </script>
+</body>
+</html>

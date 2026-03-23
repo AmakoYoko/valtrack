@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Détails Bundle - Valtrack</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-zinc-900 text-white min-h-screen p-6">
+  <main class="max-w-5xl mx-auto">
+    <div id="bundleDetail" class="bg-zinc-800 rounded-xl overflow-hidden shadow-lg">
+      <div class="relative">
+        <img id="bundleImage" class="w-full object-cover h-64" alt="Bundle image">
+        <div class="absolute bottom-4 left-4 bg-black/60 px-4 py-2 rounded-lg">
+          <h1 id="bundleName" class="text-3xl font-bold"></h1>
+          <p id="bundleDescription" class="text-sm text-zinc-300"></p>
+        </div>
+      </div>
+      <div class="p-6">
+        <h2 class="text-xl font-semibold mb-4">Contenu du Bundle</h2>
+        <div id="bundleContent" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    async function loadBundle() {
+      const params = new URLSearchParams(window.location.search);
+      const uuid = params.get('uuid');
+      if (!uuid) return;
+
+      const res = await fetch(`https://valorant-api.com/v1/bundles/${uuid}`);
+      const json = await res.json();
+      const data = json.data;
+
+      document.getElementById('bundleImage').src = data.displayIcon2 || data.displayIcon;
+      document.getElementById('bundleName').textContent = data.displayName;
+      document.getElementById('bundleDescription').textContent = data.description || '';
+
+      // Ici on pourrait faire un fetch du contenu réel si l'API le fournissait
+      document.getElementById('bundleContent').innerHTML = `<p class='text-zinc-400'>Aucune donnée de contenu disponible dans l'API</p>`;
+    }
+
+    loadBundle();
+  </script>
+</body>
+</html>

@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>ValTrack - Historique</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { background: #0f0f1a; color: white; font-family: sans-serif; }
+    .glass {
+      background: rgba(255,255,255,0.05);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+    .skeleton {
+      @apply animate-pulse bg-zinc-700 rounded;
+    }
+  </style>
+</head>
+<body class="min-h-screen p-8">
+
+  <header class="mb-8">
+    <h1 class="text-3xl font-bold">Historique des matchs</h1>
+    <p class="text-zinc-400">Vos dernières parties avec détails et statistiques</p>
+  </header>
+
+  <!-- Conteneur liste -->
+  <div id="matchList" class="grid gap-4">
+    <!-- Skeleton par défaut -->
+    <div class="glass rounded-xl p-4 flex items-center gap-4 skeleton h-28"></div>
+    <div class="glass rounded-xl p-4 flex items-center gap-4 skeleton h-28"></div>
+    <div class="glass rounded-xl p-4 flex items-center gap-4 skeleton h-28"></div>
+  </div>
+
+  <script>
+    async function fetchHistory() {
+      const list = document.getElementById("matchList");
+      list.innerHTML = ""; // clear skeleton
+
+      try {
+        // 🔹 Exemple : appel à ton backend proxy qui retourne l'historique
+        const res = await fetch("/valorant/match_history?puuid=MON_PUUID");
+        const history = await res.json();
+
+        if (!history.matches || !history.matches.length) {
+          list.innerHTML = `<div class="p-4 text-center text-zinc-400">Aucun match trouvé</div>`;
+          return;
+        }
+
+        for (const m of history.matches) {
+          // card skeleton visible jusqu’à ce que les détails arrivent
+          const card = document.createElement("div");
+          card.className = "glass rounded-xl p-4 flex items-center gap-4 skeleton h-28";
+          list.appendChild(card);
+
+          // charge détails
+          fetch(`/valorant/match_details?id=${m.matchId}`)
+            .then(r => r.json())
+            .then(detail => {
+              card.className = "glass rounded-xl p-4 flex items-center gap-4";
+
+              // img map
+              const img = document.createElement("img");
+              img.src = detail.mapIcon || "https://via.placeholder.com/64";
+              img.alt = detail.map;
+              img.className = "w-16 h-16 rounded object-cover border border-white/20";
+
+              // infos
+              const info = document.createElement("div");
+              info.className = "flex-1";
+              info.innerHTML = `
+                <div class="font-semibold text-lg">${detail.map} <span class="text-sm text-zinc-400">(${detail.mode})</span></div>
+                <div class="text-sm text-zinc-400">
+                  ${new Date(detail.start).toLocaleDateString()} • Score: ${detail.score}
+                </div>
+                <div class="text-sm mt-1">
+                  Agent: <strong>${detail.agent}</strong> • 
+                  <span class="text-green-400">${detail.k}</span> /
+                  <span class="text-red-400">${detail.d}</span> /
+                  <span class="text-blue-400">${detail.a}</span>
+                </div>
+              `;
+
+              // bouton
+              const btn = document.createElement("a");
+              btn.href = "matchInfo.html?id=" + m.matchId;
+              btn.textContent = "Voir détails";
+              btn.className = "px-3 py-1 bg-blue-600 hover:bg-blue-500 rounded text-sm transition";
+
+              card.innerHTML = "";
+              card.appendChild(img);
+              card.appendChild(info);
+              card.appendChild(btn);
+            })
+            .catch(err => {
+              console.error(err);
+              card.className = "p-4 bg-red-800 rounded";
+              card.textContent = "Erreur lors du chargement du match";
+            });
+        }
+      } catch (e) {
+        console.error(e);
+        list.innerHTML = `<div class="p-4 bg-red-800 rounded">Impossible de charger l’historique</div>`;
+      }
+    }
+
+    fetchHistory();
+  </script>
+</body>
+</html>

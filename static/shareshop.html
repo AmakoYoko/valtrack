@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>VALTrack — Boutique partagée</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: Inter, ui-sans-serif, system-ui; }
+    .glass { backdrop-filter: blur(8px); background: rgba(255,255,255,0.06); }
+    .shimmer { position:relative; overflow:hidden; }
+    .shimmer::after { content:""; position:absolute; inset:0; transform:translateX(-100%); background:linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent); animation:shimmer 1.2s infinite; }
+    @keyframes shimmer { 100% { transform: translateX(100%); } }
+  </style>
+</head>
+<body class="bg-zinc-950 text-zinc-100 min-h-screen">
+  <header class="sticky top-0 z-30 border-b border-white/10 bg-zinc-950/70 backdrop-blur">
+    <div class="mx-auto max-w-7xl px-4 h-14 flex items-center justify-between">
+      <a href="/" class="flex items-center gap-2">
+        <span class="inline-grid place-items-center h-8 w-8 rounded-xl bg-white/10">
+          <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v4m0 12v4M2 12h4m12 0h4"/></svg>
+        </span>
+        <span class="font-extrabold tracking-tight">VALTrack</span>
+      </a>
+      <div class="text-sm text-zinc-300">Boutique partagée</div>
+    </div>
+  </header>
+
+  <main class="mx-auto max-w-7xl px-4 py-6 space-y-6">
+    <section class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
+      <div>
+        <h1 class="text-2xl sm:text-3xl font-extrabold">Boutique du jour</h1>
+        <p class="text-zinc-400 text-sm">Chargée depuis un lien partagé</p>
+      </div>
+      <div class="flex items-center gap-2">
+        <button id="downloadImg" class="glass rounded-xl border border-white/10 px-4 py-2 text-sm hover:bg-white/15 active:scale-95">Télécharger l'image</button>
+        <button id="copyLink" class="glass rounded-xl border border-white/10 px-4 py-2 text-sm hover:bg-white/15 active:scale-95">Copier le lien</button>
+      </div>
+    </section>
+
+    <section id="errorBox" class="hidden">
+      <div class="glass rounded-2xl border border-white/10 p-4 text-sm text-rose-200">Lien invalide ou données manquantes.</div>
+    </section>
+
+    <section id="cardsWrap">
+      <div id="grid" class="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4"></div>
+    </section>
+  </main>
+
+  <script>
+    const $ = s => document.querySelector(s);
+    const el = (t,c,h)=>{ const n=document.createElement(t); if(c) n.className=c; if(h!=null) n.innerHTML=h; return n; };
+    const getParam = k => new URLSearchParams(location.search).get(k);
+
+    function decodeShareParam(d){
+      if(!d) return [];
+      const b64 = d.replace(/-/g,'+').replace(/_/g,'/');
+      let raw;
+      try { raw = atob(b64); } catch { return []; }
+      try {
+        const arr = JSON.parse(raw);
+        if (Array.isArray(arr) && arr.every(x=>typeof x==='string')) return arr;
+      } catch {}
+      if (raw.length % 32 !== 0) return [];
+      const out = [];
+      for (let i=0;i<raw.length;i+=32){
+        const hex = raw.slice(i,i+32);
+        const uuid = hex.replace(/(.{8})(.{4})(.{4})(.{4})(.{12})/,'$1-$2-$3-$4-$5');
+        out.push(uuid);
+      }
+      return out;
+    }
+
+    async function fetchSkin(uuid){
+      const r = await fetch(`https://valorant.lamas.one/valorant/get_skin_information?uuid=${encodeURIComponent(uuid)}`);
+      if(!r.ok) throw new Error('fetchSkin '+r.status);
+      const j = await r.json();
+      return j.data;
+    }
+
+    async function fetchTier(uuid){
+      if(!uuid) return null;
+      const r = await fetch(`https://valorant-api.com/v1/contenttiers/${uuid}`);
+      if(!r.ok) return null; const j=await r.json(); return j.data;
+    }
+
+    function filterChromas(list){
+      return (list||[]).filter(c=>{
+        const n=(c.displayName||'').trim().toLowerCase();
+        if(!n) return false; if(n==='base' || n==='1' || n==='0') return false; return true;
+      });
+    }
+
+    function skinCard(data, tier, idForLink){
+      const baseImg = data.displayIcon;
+      const chromas = filterChromas(data.chromas);
+      const price = data.know_cost || data.cost || undefined;
+
+      const card = el('article','glass rounded-2xl border border-white/10 p-3 flex flex-col');
+      const media = el('div','relative aspect-[4/3] rounded-xl bg-white/5 overflow-hidden grid place-items-center');
+
+      // Tier
+      if (tier?.displayIcon) media.appendChild(Object.assign(new Image(),{src:tier.displayIcon,className:'absolute top-3 right-3 h-8 opacity-90'}));
+
+      // Main image element (switchable)
+      const mainImg = Object.assign(new Image(),{src:baseImg||'',className:'h-full w-full object-contain'});
+      if(baseImg) media.appendChild(mainImg); else media.appendChild(el('div','h-full w-full shimmer'));
+      card.appendChild(media);
+
+      card.appendChild(el('p','mt-2 font-semibold', data.displayName || 'Skin'));
+      if (price!=null) card.appendChild(el('p','text-sm text-zinc-300', new Intl.NumberFormat('fr-FR').format(price)+' VP'));
+
+      // Variations with changeImage behaviour
+      const sw = el('div','mt-2 flex flex-wrap gap-2');
+      const makeBtn = (label, url, img)=>{
+        const b = el('button','h-7 w-7 rounded border border-white/10 overflow-hidden focus:outline-none focus:ring-2 focus:ring-white/30');
+        b.title = label||'Variation';
+        b.style.background = `url('${url}') center/cover`;
+        b.addEventListener('click', ()=>{ if(url){ mainImg.src = img; } });
+        return b;
+      };
+
+      // Base swatch first
+      if(chromas.length > 1) {
+      chromas.slice(0,8).forEach(c=>{
+        console.log(c.swatch)
+        const url = c.swatch;
+        if(url) sw.appendChild(makeBtn(c.displayName||'Var.', url, c.displayIcon));
+      });
+      card.appendChild(sw);
+        }
+      // Footer actions
+      const actions = el('div','mt-3 flex items-center gap-2');
+      const details = el('a','inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-white/10 hover:bg-white/10 transition text-sm','Détails');
+      details.href = `/weapon?uuid=${encodeURIComponent(idForLink||data.uuid||'')}`;
+      actions.appendChild(details);
+      card.appendChild(actions);
+      return card;
+    }
+
+    async function render(){
+      const d = getParam('d');
+      const uuids = decodeShareParam(d).slice(0,4);
+      if(!uuids.length){ $('#errorBox').classList.remove('hidden'); return; }
+      const grid = $('#grid'); grid.innerHTML='';
+      for(const id of uuids){
+        try{
+          const s = await fetchSkin(id);
+          const tier = await fetchTier(s.contentTierUuid);
+          grid.appendChild(skinCard(s,tier,id));
+        }catch(e){
+          const err = el('article','glass rounded-2xl border border-white/10 p-3 text-sm text-rose-200','Impossible de charger cet item.');
+          grid.appendChild(err);
+        }
+    
+      }
+    }
+
+    async function exportAsImage(){
+      if (!window.html2canvas) {
+        alert('Export image indisponible ici.');
+        return;
+      }
+      const node = $('#cardsWrap');
+      const canvas = await html2canvas(node,{backgroundColor:'#0b0b12',scale:2,useCORS:true});
+      canvas.toBlob(b=>{
+        const a=document.createElement('a');
+        const url=URL.createObjectURL(b);
+        a.href=url; a.download=`valtrack_boutique_${Date.now()}.png`; a.click(); URL.revokeObjectURL(url);
+      },'image/png',1);
+    }
+
+    $('#downloadImg').addEventListener('click', exportAsImage);
+    $('#copyLink').addEventListener('click', async ()=>{
+      try{ await navigator.clipboard.writeText(location.href); alert('Lien copié'); }catch{ alert(location.href); }
+    });
+
+    render();
+  </script>
+</body>
+</html>

@@ -1,0 +1,11 @@
+body { font-family: sans-serif; padding: 20px; }
+#overlay.hidden { display: none; }
+#overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,.8);
+  display: flex; align-items: center; justify-content: center; z-index: 9999;
+}
+#authFrame {
+  width: 95vw; height: 95vh; border: 0; background: #fff;
+  border-radius: 8px; box-shadow: 0 10px 40px rgba(0,0,0,.5);
+}
+pre { white-space: pre-wrap; word-break: break-all; }
